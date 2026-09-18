@@ -24,10 +24,24 @@ WIDTH = 480  # enough for a popup on a phone, small enough to precache
 # checkpoint id -> Commons file
 WANTED = {
     "cp3": "File:Tree Top Walk at MacRitchie, Singapore 1.jpg",
-    "cp4": "File:MacRitchie Nature Trail, Singapore.jpg",
     "cp6": "File:Jelutong Tower 1.jpg",
     "cp11": "File:MacRitchie Reservoir Park.jpg",
 }
+
+# Checkpoints whose photos came from Flickr's Creative Commons pool, found via
+# Openverse (https://openverse.org) rather than Commons. They are checked into
+# photos/ directly and their credits live in data/photos.json, because Flickr
+# needs an API key to re-fetch. Recorded here so the provenance is not lost.
+#
+#   cp2   Ranger station            pslim                 CC BY-NC-SA 2.0
+#   cp4   View from the TreeTop Walk Eustaquio Santimano  CC BY-NC-SA 2.0
+#   cp7   Syonan Jinja remains      sunriseOdyssey        CC BY-SA 2.0
+#   cp12  MacRitchie boardwalk      Jnzl's Photos         CC BY 2.0
+#
+# Every candidate was opened and compared against the landmark before use: a
+# "Lim Bo Seng Memorial" result turned out to be the Esplanade Park monument
+# rather than the MacRitchie grave, and several others were selfies or
+# undergrowth, so those checkpoints were left without a photo.
 
 
 def strip_html(text):

@@ -119,41 +119,53 @@ it to the home screen for a full-screen, chrome-free map.
 
 ### Checkpoint photos
 
-A checkpoint popup shows a photo when one is available, with the credit its
-licence requires. Three ship with the app, from Wikimedia Commons:
+A checkpoint popup shows a photo when one is available. Seven of the fourteen
+have one, all freely licensed — from Wikimedia Commons and from Flickr's
+Creative Commons pool (found via [Openverse](https://openverse.org)):
 
-| Checkpoint | Credit | Licence |
-|---|---|---|
-| HSBC TreeTop Walk | Mokkie | CC BY-SA 3.0 |
-| Jelutong Tower | Mokkie | CC BY-SA 3.0 |
-| MacRitchie Reservoir Park | Larrid31 | CC BY-SA 4.0 |
+| Checkpoint | Shows | Credit | Licence |
+|---|---|---|---|
+| 2 · MacRitchie Ranger Station | the ranger station building | pslim | CC BY-NC-SA 2.0 |
+| 3 · HSBC TreeTop Walk | the suspension bridge | Mokkie | CC BY-SA 3.0 |
+| 4 · Bukit Kallang | forest floor from the TreeTop Walk | Eustaquio Santimano | CC BY-NC-SA 2.0 |
+| 6 · Jelutong Tower | the tower | Mokkie | CC BY-SA 3.0 |
+| 7 · Syonan Jinja Ruins | the overgrown stone remains | sunriseOdyssey | CC BY-SA 2.0 |
+| 11 · MacRitchie Reservoir Park | the park | Larrid31 | CC BY-SA 4.0 |
+| 12 · Petai Trail Boardwalk | a MacRitchie boardwalk* | Jnzl's Photos | CC BY 2.0 |
 
-They are 480 px wide, about 320 KB in total, and precached so they work offline.
+\* representative of the boardwalk stretch rather than that exact structure.
 
-Commons has nothing freely licensed for the other landmarks — the Leaning Tree,
-Bukit Kallang, the Syonan Jinja ruins, Venus Drive ruins and Windsor Nature Park
-itself all came up empty, and an Openverse search restricted to CC0 and public
-domain returned nothing for any of them. Google Maps photos are not an option:
-they are copyrighted by Google or by the people who uploaded them, and the Maps
-terms forbid copying them out. **The organiser's own event photos are the natural
-way to fill the rest**, and they avoid the licensing question entirely — the
-credit line hides itself when `credit` is empty, so they display clean.
+About 590 KB in total at 480 px wide, precached so they work offline.
 
-To add one: drop the image in `photos/` and add an entry to `data/photos.json`
-keyed by the checkpoint's `id`:
+**Every candidate was opened and compared against the landmark before use**,
+which turned out to matter: a promising "Lim Bo Seng Memorial" result was the
+Esplanade Park monument by the waterfront, not the grave above the reservoir —
+the wrong side of the island. Others were a selfie, a patch of undergrowth tagged
+"Windsor Nature Park", and a group photo of identifiable faces. Those were
+rejected, so **the start/finish, Venus Drive Ruins, Petaling Boardwalk, Jering
+Hut, the Leaning Tree and the Lim Bo Seng Memorial have no photo** rather than a
+misleading one. Google Maps photos are not an option: they are copyrighted by
+Google or by the people who uploaded them, and the Maps terms forbid copying them
+out.
+
+The organiser's own event photos are the natural way to fill the remaining six.
+Drop the image in `photos/` and add an entry to `data/photos.json` keyed by the
+checkpoint's `id`:
 
 ```json
-"cp9": { "file": "photos/cp9.jpg", "credit": "UMS Walk & Hike", "licence": "" }
+"cp9": { "file": "photos/cp9.jpg", "credit": "", "licence": "" }
 ```
 
-`credit` and `licence` may be empty for your own photos. Add the file to the
-`SHELL` list in `sw.js` if you want it precached. `tools/fetch_photos.py`
-re-downloads the Commons set and rewrites their entries.
+An empty `credit` hides the caption, so your own photos display clean — and the
+same works on any of the seven above if you would rather they showed no caption.
+Add the file to the `SHELL` list in `sw.js` to have it precached.
+`tools/fetch_photos.py` re-downloads the Commons ones and records where the
+Flickr ones came from.
 
 The image is given an explicit height in CSS rather than `max-height`: Leaflet
 measures a popup to pan it into view the instant it opens, before the image has
-loaded, and an intrinsic height of zero at that moment puts the popup off the
-top of the screen.
+loaded, and an intrinsic height of zero at that moment puts the popup off the top
+of the screen.
 
 ## Base maps
 

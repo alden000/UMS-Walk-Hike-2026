@@ -1,5 +1,5 @@
 {
- "note": "Freely-licensed photos from Wikimedia Commons; credit is required by the licence.",
+ "note": "Freely-licensed photos from Wikimedia Commons and Flickr (found via Openverse). Every one was opened and checked against the landmark before being used. Set a photo's \"credit\" to \"\" to hide its caption.",
  "photos": {
   "cp3": {
    "file": "photos/cp3.jpg",
@@ -18,6 +18,34 @@
    "credit": "Larrid31",
    "licence": "CC BY-SA 4.0",
    "source": "https://commons.wikimedia.org/wiki/File:MacRitchie_Reservoir_Park.jpg"
+  },
+  "cp2": {
+   "file": "photos/cp2.jpg",
+   "credit": "pslim",
+   "licence": "CC BY-NC-SA 2.0",
+   "source": "https://www.flickr.com/photos/pslim/",
+   "shows": "MacRitchie ranger station building"
+  },
+  "cp4": {
+   "file": "photos/cp4.jpg",
+   "credit": "Eustaquio Santimano",
+   "licence": "CC BY-NC-SA 2.0",
+   "source": "https://www.flickr.com/photos/eustaquio/",
+   "shows": "Forest floor seen from the TreeTop Walk"
+  },
+  "cp7": {
+   "file": "photos/cp7.jpg",
+   "credit": "sunriseOdyssey",
+   "licence": "CC BY-SA 2.0",
+   "source": "https://www.flickr.com/photos/sunriseodyssey/",
+   "shows": "Overgrown stone remains of the Syonan Jinja"
+  },
+  "cp12": {
+   "file": "photos/cp12.jpg",
+   "credit": "Jnzl's Photos",
+   "licence": "CC BY 2.0",
+   "source": "https://www.flickr.com/photos/jnzls-photos/",
+   "shows": "A MacRitchie boardwalk (representative of the Petai stretch)"
   }
  }
 }
