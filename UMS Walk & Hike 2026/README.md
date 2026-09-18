@@ -33,6 +33,15 @@ the map cannot be lost, and zoom stops one level below the zoom that fits that
 corridor — far enough out to take in the whole route and its surroundings, not
 so far that the route becomes a squiggle.
 
+The route is wide and shallow (3.4 km across, 2.6 km deep), so on a tall phone
+fitting its width makes the viewport taller than that corridor. Left alone,
+Leaflet then clamps the centre and the map cannot be dragged vertically at all.
+The fence is therefore grown to just over the viewport whenever that happens:
+nothing new becomes visible — a fence smaller than the screen is not a fence —
+the map simply stops being frozen, and marker popups can pan clear of the
+panels. Popups that would still sit under the header fold the header away while
+they are open.
+
 **Progress** — from the device GPS, projected onto the route: distance covered,
 distance to the finish, percent complete, distance to the next landmark, moving
 average pace and an ETA. Being more than 60 m off the line raises an "off route"
@@ -58,6 +67,7 @@ gives the position as *km along the route* plus how far off the path it sits.
 | 🩵 | Drinking water | 4 |
 | 🟣 | Drink / snack machines | 4 |
 | 🟢 | Shelters & huts | 37 (off by default — they are dense) |
+| 🟠 | Car park | Windsor Nature Park, with NParks' lot counts and hours |
 
 Checkpoints are the landmarks listed below.
 
@@ -303,32 +313,38 @@ tools/                  data build scripts + source KML
 - [ ] Spot-check toilets and water points — OSM survey dates on some entries go
       back to 2020.
 
-## Car park availability at Windsor Nature Park — not available
+## The Windsor Nature Park car park
 
-There is **no real-time lot-availability feed for the Windsor Nature Park car
-park**, and none for any NParks nature-park car park. Checked:
+The car park is on the map as an amber **P** marker at the start, carrying
+NParks' own published details:
+
+| | |
+|---|---|
+| Address | 30 Venus Drive, Singapore 573858 |
+| Lots | 104 car, 10 motorcycle, 2 accessible |
+| Cost | Free |
+| Hours | 7am–7pm daily; no entry or exit outside those hours |
+| Overnight | Not allowed |
+
+NParks' own wording: *"As the carpark has limited lots, do seek proper
+alternative parking arrangements when the carpark is full."* With 104 lots for a
+whole event field, arriving early matters.
+
+### There is no live lot-availability feed for it
+
+Checked, and the popup says so plainly rather than leaving people wondering:
 
 | Source | Result |
 |---|---|
-| `api.data.gov.sg/v1/transport/carpark-availability` | Works (2,016 car parks, updated each minute) but **HDB car parks only**. Cross-checked every entry against the HDB Car Park Information dataset, converting its SVY21 coordinates to WGS84: the nearest is **BE18, Bright Hill Drive, 449 m away**. Nothing at the nature park. |
+| `api.data.gov.sg/v1/transport/carpark-availability` | Works (2,016 car parks, updated each minute) but **HDB car parks only**. Every entry was cross-checked against the HDB Car Park Information dataset, converting its SVY21 coordinates to WGS84: the nearest is 449 m away, at Bright Hill Drive. Nothing at the nature park. |
 | `api-open.data.gov.sg/v2/real-time/api/carpark-availability` | 403, *Missing Authentication Token* — not an open v2 endpoint. |
 | LTA DataMall `CarParkAvailabilityv2` | Needs a registered AccountKey, which this build does not have. It covers HDB, URA and LTA car parks; NParks nature-park car parks are generally not among them, but this could not be verified either way. |
 
-If you want something useful on the day anyway, the nearest HDB car parks **are**
-in the free feed and were returning live counts when this was checked:
+Data for the marker is curated by hand in the `MANUAL_POIS` table in
+`tools/build_data.py`, because OpenStreetMap carries no capacity or fee tags for
+this car park. If a live feed ever appears, that is where to wire it in.
 
-| Car park | Distance | Live at time of check |
-|---|---:|---|
-| BE18 — Blk 441-455 Sin Ming Ave / Bright Hill Dr | 449 m | 209 / 560 free |
-| BE44 — Blk 448A Bright Hill Drive | 527 m | 296 / 424 free |
-| BE3 — Blk 401-408 Sin Ming Avenue | 839 m | 117 / 320 free |
-
-Those would work as an overflow-parking panel — if the nature park car park is
-full, walkers divert to Sin Ming and walk 450-550 m in. Not built, because it
-answers a different question from the one asked; say the word and it is a small
-addition.
-
-## Attribution
+## Attribution## Attribution
 
 - Route: supplied `UMS_Walk_2026.kml`
 - Facility and trail data: © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/1-0/)

@@ -7,6 +7,7 @@ export const CATEGORY = {
   water:   { label: 'Drinking water',   colour: '#17c5e0', plural: 'Water points' },
   vending: { label: 'Vending machine',  colour: '#c06bff', plural: 'Vending machines' },
   shelter: { label: 'Shelter hut',      colour: '#3fc46a', plural: 'Shelters & huts' },
+  parking: { label: 'Car park',         colour: '#f5a524', plural: 'Car park' },
 };
 
 // Glyph paths are drawn inside a 24×24 box, centred on the pin head at (12, 10).
@@ -27,6 +28,9 @@ const GLYPHS = {
   // hut / shelter roof
   shelter: '<path d="M12 5.3l6.1 4.6h-1.6v5.6H7.5V9.9H5.9z" fill="#fff"/>' +
            '<path d="M10.5 15.5v-3.1h3v3.1z" fill="#3fc46a"/>',
+  // parking "P"
+  parking: '<text x="12" y="15.4" text-anchor="middle" font-size="12.5" font-weight="700"' +
+           ' font-family="system-ui, sans-serif" fill="#fff">P</text>',
 };
 
 function pinSvg(colour, glyph) {

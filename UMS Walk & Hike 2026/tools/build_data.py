@@ -43,7 +43,29 @@ OSM_TILES = [
 
 # How far off the route a POI may be and still be "near or along the route".
 # Shelters are dense in the nature reserve, so they get a tighter radius.
-MAX_OFFSET_M = {"aed": 1000, "toilet": 800, "water": 800, "vending": 800, "shelter": 400}
+MAX_OFFSET_M = {
+    "aed": 1000, "toilet": 800, "water": 800, "vending": 800, "shelter": 400, "parking": 1000,
+}
+
+# Facilities OpenStreetMap does not carry, entered by hand from the operator's
+# own published information. `detail` is the one-line summary under the name;
+# `note` is the longer advisory shown beneath it.
+MANUAL_POIS = {
+    "parking": [
+        {
+            "id": "nparks-windsor-carpark",
+            "name": "Windsor Nature Park Carpark",
+            "detail": "Free \u00b7 104 car, 10 bike, 2 accessible lots \u00b7 7am\u20137pm",
+            "note": (
+                "30 Venus Drive. Limited lots \u2014 arrive early; no overnight "
+                "parking. No live availability feed exists for this carpark."
+            ),
+            "lat": 1.360478,
+            "lon": 103.826813,
+            "source": "NParks park listing for Windsor Nature Park",
+        }
+    ],
+}
 
 R_EARTH = 6371008.8
 
@@ -286,6 +308,14 @@ def build_pois(route_index):
                 "along": round(along),
             }
         )
+    for cat, items in MANUAL_POIS.items():
+        for item in items:
+            entry = dict(item)
+            offset, along = route_index.project(entry["lat"], entry["lon"])
+            entry["offset"] = round(offset)
+            entry["along"] = round(along)
+            out.setdefault(cat, []).append(entry)
+
     for cat in out:
         out[cat].sort(key=lambda p: p["along"])
     return out

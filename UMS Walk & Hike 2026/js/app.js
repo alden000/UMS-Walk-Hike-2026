@@ -28,6 +28,7 @@ const state = {
   lastFix: null,
   lastProgress: null,
   lastAccuracy: null,
+  hudAutoMinimised: false,
   following: false,
   followTimer: null,
   watchId: null,
@@ -159,8 +160,10 @@ function buildMap(routeDoc, trailDoc) {
   state.layers.trails = trails;
 
   map.fitBounds(state.routeBounds, { padding: [30, 30] });
-  applyMinZoom();
-  map.on('resize', applyMinZoom);
+  applyBounds();
+  // the fence depends on how much of the world the viewport covers, so it is
+  // re-derived whenever that changes
+  map.on('resize zoomend', applyBounds);
   // panning by hand means the walker wants to look elsewhere; zooming does not
   map.on('dragstart', () => {
     if (state.following && !state.programmaticMove) setFollowing(false, true);
@@ -170,16 +173,52 @@ function buildMap(routeDoc, trailDoc) {
 }
 
 /**
- * Lower bound on zoom, derived from the corridor.
+ * Re-derive the zoom floor and the panning fence for the current viewport.
  *
  * `getBoundsZoom(..., true)` is the zoom at which the viewport still fits inside
- * the corridor. We allow one level further out than that, so the whole route and
- * its surroundings can be taken in at a glance; panning stays fenced by
- * `maxBounds` either way.
+ * the corridor; we allow one level further out so the whole route and its
+ * surroundings can be taken in at a glance.
+ *
+ * The fence needs a second look. The route is wide and shallow — 3.4 km across,
+ * 2.6 km deep — so on a tall phone, fitting its width makes the viewport taller
+ * than the 1 km corridor. Leaflet then clamps the centre and the map cannot be
+ * dragged vertically *at all*, which also stops popups panning clear of the
+ * header. A fence smaller than the screen is not a fence anyway, so in that
+ * case it is grown to just over the viewport: nothing new becomes visible, the
+ * map simply stops being frozen.
  */
-function applyMinZoom() {
-  const fit = state.map.getBoundsZoom(state.limitBounds, true);
-  state.map.setMinZoom(Math.max(10, Math.floor(fit * 4) / 4 - ZOOM_OUT_SLACK));
+function applyBounds() {
+  const map = state.map;
+  const corridor = state.limitBounds;
+
+  const fit = map.getBoundsZoom(corridor, true);
+  map.setMinZoom(Math.max(10, Math.floor(fit * 4) / 4 - ZOOM_OUT_SLACK));
+
+  // Slack big enough that any marker can be brought into the clear band between
+  // the panels — measured from the panels themselves, not guessed.
+  const slackPx = Math.max(
+    160,
+    $('#hud').offsetHeight + $('#wx-toggle').offsetHeight + 60,
+  );
+  const origin = map.containerPointToLatLng([0, 0]);
+  const padded = map.containerPointToLatLng([-slackPx, -slackPx]);
+  const slackLat = Math.abs(padded.lat - origin.lat);
+  const slackLon = Math.abs(origin.lng - padded.lng);
+
+  const view = map.getBounds();
+  const centre = corridor.getCenter();
+  const halfLat = Math.max(
+    corridor.getNorth() - corridor.getSouth(),
+    (view.getNorth() - view.getSouth()) + 2 * slackLat,
+  ) / 2;
+  const halfLon = Math.max(
+    corridor.getEast() - corridor.getWest(),
+    (view.getEast() - view.getWest()) + 2 * slackLon,
+  ) / 2;
+  map.setMaxBounds(L.latLngBounds(
+    [centre.lat - halfLat, centre.lng - halfLon],
+    [centre.lat + halfLat, centre.lng + halfLon],
+  ));
 }
 
 function setBasemap(id) {
@@ -264,7 +303,9 @@ function buildPois() {
         .bindPopup(
           `<div class="pop-t">${escapeHtml(p.name === meta.label ? meta.label : p.name)}</div>` +
           (p.detail ? `<div class="pop-d">${escapeHtml(p.detail)}</div>` : '') +
-          `<div class="pop-m">km ${(p.along / 1000).toFixed(2)} on route · ${p.offset} m off the path</div>`)
+          (p.note ? `<div class="pop-n">${escapeHtml(p.note)}</div>` : '') +
+          `<div class="pop-m">km ${(p.along / 1000).toFixed(2)} on route · ${p.offset} m off the path</div>`,
+          { maxWidth: p.note ? 270 : 300 })
         .addTo(group);
     }
     state.layers[cat] = group;
@@ -336,15 +377,37 @@ function wireControls() {
     layersBtn.setAttribute('aria-pressed', String(open));
   });
 
-  const hudToggle = $('#hud-toggle');
-  hudToggle.addEventListener('click', () => {
-    const open = hudToggle.getAttribute('aria-expanded') === 'true';
-    hudToggle.setAttribute('aria-expanded', String(!open));
-    // only the stat tiles and the footnote fold away; the progress bar stays
-    $('#hud-body').hidden = open;
-    // the status line carries the numbers while minimised, so re-render it now
-    renderProgress(state.lastProgress ?? null, state.lastAccuracy);
-    state.measurePanels?.();
+  $('#hud-toggle').addEventListener('click', () => setHudOpen(!hudOpen()));
+
+  // A marker near the top of the corridor cannot be panned clear of the HUD —
+  // maxBounds stops the map moving that far — and Leaflet's popup pane cannot
+  // be raised above the panels, since the fixed-position map is its own
+  // stacking context. So the HUD folds itself away while a popup covers it,
+  // and springs back when the popup closes.
+  state.map.on('popupopen', e => {
+    if (!hudOpen()) return;
+    const popup = e.popup.getElement();
+    const hud = $('#hud').getBoundingClientRect();
+    if (!popup) return;
+    const box = popup.getBoundingClientRect();
+    const overlaps = !(box.bottom <= hud.top || box.top >= hud.bottom
+      || box.right <= hud.left || box.left >= hud.right);
+    if (overlaps) {
+      state.hudAutoMinimised = true;
+      setHudOpen(false);
+      // the HUD has shrunk, but the popup does not re-pan itself: nudge the map
+      // so the popup clears the smaller header (maxBounds may absorb some of it)
+      requestAnimationFrame(() => {
+        const safeTop = $('#hud').getBoundingClientRect().bottom + 12;
+        const top = popup.getBoundingClientRect().top;
+        if (top < safeTop) state.map.panBy([0, top - safeTop], { animate: true, duration: 0.25 });
+      });
+    }
+  });
+  state.map.on('popupclose', () => {
+    if (!state.hudAutoMinimised) return;
+    state.hudAutoMinimised = false;
+    setHudOpen(true);
   });
 
   // The control stack lives in the band between the HUD and the weather panel.
@@ -358,8 +421,15 @@ function wireControls() {
     const root = document.documentElement.style;
     const bar = $('#wx-toggle').offsetHeight
       + ($('#wx-alert').hidden ? 0 : $('#wx-alert').offsetHeight);
+    const hud = $('#hud').offsetHeight;
     root.setProperty('--wx-h', `${Math.round(bar)}px`);
-    root.setProperty('--hud-h', `${Math.round($('#hud').offsetHeight)}px`);
+    root.setProperty('--hud-h', `${Math.round(hud)}px`);
+
+    // Popups auto-pan into view on open; without this they slide under the HUD
+    // or the weather bar. Instances inherit these from the prototype, so
+    // updating it here applies to every popup, including ones already bound.
+    L.Popup.prototype.options.autoPanPaddingTopLeft = L.point(14, Math.round(hud) + 22);
+    L.Popup.prototype.options.autoPanPaddingBottomRight = L.point(14, Math.round(bar) + 22);
   };
   state.measurePanels = measure;
   measure();
@@ -388,6 +458,19 @@ function wireControls() {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) refreshWeather(false);
   });
+}
+
+function hudOpen() {
+  return $('#hud-toggle').getAttribute('aria-expanded') === 'true';
+}
+
+/** Fold the stat tiles away; the progress bar and status line always stay. */
+function setHudOpen(open) {
+  $('#hud-toggle').setAttribute('aria-expanded', String(open));
+  $('#hud-body').hidden = !open;
+  // minimised, the status line carries the numbers, so re-render it now
+  renderProgress(state.lastProgress ?? null, state.lastAccuracy);
+  state.measurePanels?.();
 }
 
 function centreOnMe() {
