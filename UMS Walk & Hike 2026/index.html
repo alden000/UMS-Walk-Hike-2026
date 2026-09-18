@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>UMS Walk &amp; Hike 2026</title>
+<meta name="description" content="Live trail map, progress tracker and weather for the UMS Walk &amp; Hike 2026 route.">
+<meta name="theme-color" content="#0d1412">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="UMS Walk 2026">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<div id="map" role="application" aria-label="Route map"></div>
+
+<!-- ── top: progress along the route ─────────────────────────────── -->
+<header id="hud" class="panel">
+  <div class="hud-row">
+    <div class="hud-title">
+      <h1>UMS Walk &amp; Hike 2026</h1>
+      <p id="hud-status">Waiting for GPS…</p>
+    </div>
+    <button id="hud-toggle" class="icon-btn" aria-expanded="true" aria-controls="hud-body" title="Collapse panel">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
+    </button>
+  </div>
+
+  <div id="hud-body">
+    <div class="stats">
+      <div class="stat"><span class="stat-v" id="st-done">–</span><span class="stat-l">done</span></div>
+      <div class="stat"><span class="stat-v" id="st-left">–</span><span class="stat-l">to finish</span></div>
+      <div class="stat"><span class="stat-v" id="st-pct">–</span><span class="stat-l">complete</span></div>
+      <div class="stat"><span class="stat-v" id="st-next">–</span><span class="stat-l" id="st-next-l">next CP</span></div>
+    </div>
+
+    <div class="bar" id="bar" aria-hidden="true">
+      <div class="bar-fill" id="bar-fill"></div>
+      <div class="bar-ticks" id="bar-ticks"></div>
+      <div class="bar-me" id="bar-me"></div>
+    </div>
+
+    <p class="fineprint" id="hud-note">Route 13.25 km loop · Windsor Nature Park</p>
+  </div>
+</header>
+
+<!-- ── right: map controls ───────────────────────────────────────── -->
+<div id="controls">
+  <button class="icon-btn" id="btn-zoom-in" title="Zoom in" aria-label="Zoom in">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+  <button class="icon-btn" id="btn-zoom-out" title="Zoom out" aria-label="Zoom out">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>
+  </button>
+  <button class="icon-btn" id="btn-locate" title="Centre on my position" aria-label="Centre on my position">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="7.5"/><path d="M12 1.6v3M12 19.4v3M22.4 12h-3M4.6 12h-3"/></svg>
+  </button>
+  <button class="icon-btn toggle" id="btn-follow" title="Follow me" aria-label="Follow me" aria-pressed="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+  </button>
+  <button class="icon-btn" id="btn-fit" title="Fit whole route" aria-label="Fit whole route">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+  </button>
+  <button class="icon-btn toggle" id="btn-layers" title="Map layers &amp; markers" aria-label="Map layers and markers" aria-pressed="false" aria-controls="layers">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3.5 12.5L12 17l8.5-4.5"/></svg>
+  </button>
+</div>
+
+<!-- ── layers drawer ─────────────────────────────────────────────── -->
+<section id="layers" class="panel" hidden aria-label="Map layers and markers">
+  <h2>Base map</h2>
+  <div class="seg" id="basemaps" role="radiogroup" aria-label="Base map"></div>
+  <p class="fineprint" id="basemap-note"></p>
+
+  <h2>Markers</h2>
+  <div class="checks" id="overlays"></div>
+
+  <h2>Route</h2>
+  <div class="checks" id="route-overlays"></div>
+</section>
+
+<!-- ── bottom: weather ───────────────────────────────────────────── -->
+<section id="weather" class="panel" aria-label="Weather along the route">
+  <div class="wx-head">
+    <h2>Weather along the route</h2>
+    <button id="wx-refresh" class="icon-btn small" title="Refresh weather" aria-label="Refresh weather">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 10-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
+    </button>
+  </div>
+  <div class="wx-cards" id="wx-cards">
+    <div class="wx-card skeleton"></div><div class="wx-card skeleton"></div>
+    <div class="wx-card skeleton"></div><div class="wx-card skeleton"></div>
+  </div>
+  <p class="fineprint" id="wx-note">Loading NEA data…</p>
+</section>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="vendor/leaflet.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

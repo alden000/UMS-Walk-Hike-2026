@@ -1,0 +1,70 @@
+{
+ "provisional": true,
+ "note": "Spacing-based placeholders - replace with the organiser's official checkpoints.",
+ "checkpoints": [
+  {
+   "id": "start",
+   "name": "Start / Finish",
+   "along": 0,
+   "lat": 1.359789,
+   "lon": 103.827313,
+   "note": "Windsor Nature Park"
+  },
+  {
+   "id": "cp1",
+   "name": "Checkpoint 1",
+   "along": 2000,
+   "lat": 1.355298,
+   "lon": 103.813817,
+   "note": ""
+  },
+  {
+   "id": "cp2",
+   "name": "Checkpoint 2",
+   "along": 4000,
+   "lat": 1.355786,
+   "lon": 103.80741,
+   "note": "Dillenia Hut"
+  },
+  {
+   "id": "cp3",
+   "name": "Checkpoint 3",
+   "along": 6000,
+   "lat": 1.344325,
+   "lon": 103.814418,
+   "note": ""
+  },
+  {
+   "id": "cp4",
+   "name": "Checkpoint 4",
+   "along": 8000,
+   "lat": 1.343424,
+   "lon": 103.823292,
+   "note": "Chemperai Hut"
+  },
+  {
+   "id": "cp5",
+   "name": "Checkpoint 5",
+   "along": 10000,
+   "lat": 1.342214,
+   "lon": 103.834952,
+   "note": "Pavilion"
+  },
+  {
+   "id": "cp6",
+   "name": "Checkpoint 6",
+   "along": 12000,
+   "lat": 1.352365,
+   "lon": 103.828329,
+   "note": "Rambai Hut"
+  },
+  {
+   "id": "finish",
+   "name": "Finish",
+   "along": 13249,
+   "lat": 1.359789,
+   "lon": 103.827313,
+   "note": "Windsor Nature Park"
+  }
+ ]
+}

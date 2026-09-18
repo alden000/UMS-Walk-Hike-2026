@@ -1,0 +1,17 @@
+{
+  "name": "UMS Walk & Hike 2026",
+  "short_name": "UMS Walk 2026",
+  "description": "Live trail map, progress tracker and weather for the UMS Walk & Hike 2026 route at Windsor Nature Park and MacRitchie.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0d1412",
+  "theme_color": "#0d1412",
+  "categories": ["navigation", "sports", "travel"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
