@@ -47,6 +47,7 @@ MAX_OFFSET_M = {
     "aed": 1000, "toilet": 800, "water": 800, "vending": 800, "shelter": 400, "parking": 1000,
 }
 
+
 # Facilities OpenStreetMap does not carry, entered by hand from the operator's
 # own published information. `detail` is the one-line summary under the name;
 # `note` is the longer advisory shown beneath it.

@@ -5,7 +5,7 @@
 //   map tiles               cached as they are viewed, capped, stale-while-revalidate
 //   NEA weather             network-only (the app keeps its own short-lived copy)
 
-const VERSION = 'v6';
+const VERSION = 'v7';
 const SHELL_CACHE = `ums-shell-${VERSION}`;
 const TILE_CACHE = `ums-tiles-${VERSION}`;
 const MAX_TILES = 1200;
@@ -20,6 +20,8 @@ const SHELL = [
   'js/weather.js',
   'vendor/leaflet.js',
   'vendor/leaflet.css',
+  'vendor/markercluster.js',
+  'vendor/markercluster.css',
   'vendor/marker-shadow.png',
   'data/route.json',
   'data/pois.json',

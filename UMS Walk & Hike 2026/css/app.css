@@ -477,7 +477,7 @@ h2:first-of-type { margin-top: 0; }
 /* ── map markers ──────────────────────────────────────────────── */
 .pin { width: 28px; height: 28px; }
 .pin svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .55)); }
-.leaflet-marker-icon.pin-cp { width: 26px !important; height: 26px !important; }
+.leaflet-marker-icon.pin-cp { width: 23px !important; height: 23px !important; }
 
 .me-dot { width: 22px; height: 22px; }
 .me-dot .core {
@@ -498,6 +498,80 @@ h2:first-of-type { margin-top: 0; }
 @keyframes ping {
   0% { transform: scale(.5); opacity: .9; }
   100% { transform: scale(2.1); opacity: 0; }
+}
+
+/* ── clustered facility markers ───────────────────────────────── */
+.cluster { background: none; border: 0; }
+.cl-grid {
+  display: grid;
+  gap: 1.5px;
+  padding: 2.5px;
+  border-radius: 9px;
+  background: rgba(14, 22, 20, .92);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .22);
+}
+.cl-cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+}
+.cl-grid > .cl-cell:only-child { width: 24px; height: 24px; border-radius: 7px; }
+.cl-cell svg { width: 105%; height: 105%; display: block; }
+.cl-cell i {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  min-width: 10px;
+  padding: 0 1.5px;
+  border-radius: 99px;
+  background: #0d1412;
+  color: #fff;
+  font: 600 7.5px/1.35 system-ui, sans-serif;
+  font-style: normal;
+  text-align: center;
+}
+.cl-more {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: 700 9.5px/1.5 system-ui, sans-serif;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+}
+
+/* the list shown when a cluster is tapped */
+.cl-list { margin: 7px 0 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.cl-list button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 7px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .05);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cl-list button:active { background: rgba(255, 255, 255, .1); }
+.cl-list .ico { width: 19px; height: 19px; flex: none; }
+/* without min-width:0 a flex child refuses to shrink below its text width */
+.cl-list button > span { min-width: 0; flex: 1; }
+.cl-list b { display: block; font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+.cl-list em {
+  display: block;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ink-dim);
+  overflow-wrap: anywhere;
 }
 
 /* popups */

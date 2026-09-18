@@ -28,13 +28,13 @@ the line itself is the progress bar. Before the first GPS fix the whole route is
 orange. A legend under *Line colours* in the layers drawer spells this out, and
 the brown hairlines on the Trail map layer are the other footpaths in the area.
 
-Kilometre pips every 1 km. Panning is fenced to the route plus a 1 km margin so
+Kilometre pips every 1 km. Panning is fenced to the route plus a 2 km margin so
 the map cannot be lost, and zoom stops one level below the zoom that fits that
 corridor — far enough out to take in the whole route and its surroundings, not
 so far that the route becomes a squiggle.
 
 The route is wide and shallow (3.4 km across, 2.6 km deep), so on a tall phone
-fitting its width makes the viewport taller than that corridor. Left alone,
+fitting its width can still make the viewport taller than that corridor. Left alone,
 Leaflet then clamps the centre and the map cannot be dragged vertically at all.
 The fence is therefore grown to just over the viewport whenever that happens:
 nothing new becomes visible — a fence smaller than the screen is not a fence —
@@ -59,6 +59,17 @@ movement once it persists — so the remaining distance does not flicker.
 
 **Markers** — each category has its own pin shape and colour, and every popup
 gives the position as *km along the route* plus how far off the path it sits.
+
+Facilities bunch up — the ranger station has a toilet, a water point and an AED
+within ten metres, and at the reservoir park a car park, two toilets, water and
+an AED sit on the same spot — so the pins used to bury one another. They now
+share a single cluster group, and **a cluster shows which kinds of facility it
+holds** as a grid of category glyphs with per-category counts, rather than an
+anonymous number. Tapping one lists everything inside with its details; tapping
+a row zooms to that marker and opens it. Past zoom 18 clustering switches off
+and every pin stands on its own. Because all categories share one group,
+overlaps *between* categories collapse too, and each category can still be
+toggled independently.
 
 | | Category | Found near the route |
 |---|---|---|

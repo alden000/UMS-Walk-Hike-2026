@@ -73,7 +73,37 @@ export function checkpointIcon(kind, label) {
          <text x="12" y="16.3" text-anchor="middle" font-size="12.5" font-weight="700"
                font-family="system-ui, sans-serif" fill="${ink}">${label}</text>
        </svg>`;
-  return L.divIcon({ className: 'pin pin-cp', html, iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -13] });
+  return L.divIcon({ className: 'pin pin-cp', html, iconSize: [23, 23], iconAnchor: [11.5, 11.5], popupAnchor: [0, -12] });
+}
+
+/**
+ * Icon for a cluster of facilities sitting on top of each other.
+ *
+ * Rather than an anonymous count bubble, it shows which kinds of facility are
+ * in there: up to four category glyphs in a grid, so "toilet + water + AED" at
+ * the ranger station reads at a glance without zooming in.
+ */
+export function clusterIcon(counts, total) {
+  const order = Object.keys(CATEGORY).filter(c => counts[c]);
+  const shown = order.slice(0, 4);
+  const extra = total - shown.reduce((n, c) => n + counts[c], 0);
+  const cols = shown.length <= 1 ? 1 : 2;
+  const size = shown.length <= 1 ? 32 : 38;
+
+  const cells = shown.map(cat => `
+    <span class="cl-cell" style="background:${CATEGORY[cat].colour}">
+      <svg viewBox="0 0 24 24" aria-hidden="true">${GLYPHS[cat]}</svg>
+      ${counts[cat] > 1 ? `<i>${counts[cat]}</i>` : ''}
+    </span>`).join('');
+
+  return L.divIcon({
+    className: 'cluster',
+    html: `<div class="cl-grid" style="grid-template-columns:repeat(${cols},1fr)">${cells}</div>` +
+          (extra > 0 ? `<b class="cl-more">+${extra}</b>` : ''),
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+  });
 }
 
 /** Pulsing "you are here" dot. */

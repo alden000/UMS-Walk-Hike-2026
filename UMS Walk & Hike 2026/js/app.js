@@ -1,13 +1,13 @@
 // UMS Walk & Hike 2026 — interactive route map, progress tracker and weather.
 
 import { Route, ProgressTracker, formatDistance, splitDistance, formatDuration } from './geo.js';
-import { CATEGORY, poiIcon, legendIcon, checkpointIcon, meIcon, weatherIcon } from './icons.js';
+import { CATEGORY, poiIcon, legendIcon, checkpointIcon, clusterIcon, meIcon, weatherIcon } from './icons.js';
 import { loadWeather, cachedWeather, psiBand, pm25Band, uvBand } from './weather.js';
 
 const $ = sel => document.querySelector(sel);
 
 // Panning and zooming are confined to the route plus this much breathing room.
-const CORRIDOR_M = 1000;
+const CORRIDOR_M = 2000;
 // how many zoom levels beyond the corridor fit the user may zoom out
 const ZOOM_OUT_SLACK = 1;
 const FOLLOW_INTERVAL_MS = 1000;
@@ -122,7 +122,7 @@ async function fetchJSON(url) {
 // ── map ──────────────────────────────────────────────────────────────
 function buildMap(routeDoc, trailDoc) {
   const b = routeDoc.bounds;
-  // 1 km of slack around the route, converted to degrees at this latitude.
+  // the corridor around the route, converted to degrees at this latitude
   const dLat = CORRIDOR_M / 110574;
   const dLon = CORRIDOR_M / (111320 * Math.cos(((b.minLat + b.maxLat) / 2) * Math.PI / 180));
   const limit = L.latLngBounds(
@@ -294,24 +294,87 @@ function buildCheckpoints() {
     `${state.route.doc.elevation.gain} m ascent`;
 }
 
+/**
+ * Facility markers, in one cluster group.
+ *
+ * Facilities bunch up: the ranger station has a toilet, a water point and an AED
+ * within ten metres of each other, and the pins hid one another completely. They
+ * all live in a single cluster group so overlaps *between* categories collapse
+ * too, and the cluster shows which kinds of facility it holds rather than an
+ * anonymous count. Categories stay individually toggleable by adding and
+ * removing their markers from the group.
+ */
 function buildPois() {
+  const cluster = L.markerClusterGroup({
+    maxClusterRadius: 38,          // px: only pins that genuinely overlap
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    zoomToBoundsOnClick: false,    // handled below, so a tap always shows the list
+    disableClusteringAtZoom: 18,   // close in, every pin stands on its own
+    spiderLegPolylineOptions: { weight: 1.4, color: '#93a6a1', opacity: 0.7 },
+    iconCreateFunction(c) {
+      const counts = {};
+      for (const m of c.getAllChildMarkers()) {
+        counts[m.options.category] = (counts[m.options.category] || 0) + 1;
+      }
+      return clusterIcon(counts, c.getChildCount());
+    },
+  });
+  state.cluster = cluster;
+  state.markersByCategory = {};
+
   for (const [cat, meta] of Object.entries(CATEGORY)) {
-    const items = state.pois[cat] || [];
-    const group = L.layerGroup();
-    for (const p of items) {
-      L.marker([p.lat, p.lon], { icon: poiIcon(cat), zIndexOffset: cat === 'aed' ? 500 : 0 })
-        .bindPopup(
-          `<div class="pop-t">${escapeHtml(p.name === meta.label ? meta.label : p.name)}</div>` +
-          (p.detail ? `<div class="pop-d">${escapeHtml(p.detail)}</div>` : '') +
-          (p.note ? `<div class="pop-n">${escapeHtml(p.note)}</div>` : '') +
-          `<div class="pop-m">km ${(p.along / 1000).toFixed(2)} on route · ${p.offset} m off the path</div>`,
-          { maxWidth: p.note ? 270 : 300 })
-        .addTo(group);
-    }
-    state.layers[cat] = group;
+    const markers = (state.pois[cat] || []).map(p =>
+      L.marker([p.lat, p.lon], {
+        icon: poiIcon(cat),
+        category: cat,
+        zIndexOffset: cat === 'aed' ? 500 : 0,
+      }).bindPopup(
+        `<div class="pop-t">${escapeHtml(p.name === meta.label ? meta.label : p.name)}</div>` +
+        (p.detail ? `<div class="pop-d">${escapeHtml(p.detail)}</div>` : '') +
+        (p.note ? `<div class="pop-n">${escapeHtml(p.note)}</div>` : '') +
+        `<div class="pop-m">km ${(p.along / 1000).toFixed(2)} on route · ${p.offset} m off the path</div>`,
+        { maxWidth: p.note ? 270 : 300 }));
+
+    state.markersByCategory[cat] = markers;
     // shelters are numerous; leave them off until asked for
-    if (cat !== 'shelter') group.addTo(state.map);
+    if (cat !== 'shelter') cluster.addLayers(markers);
   }
+
+  // A tap on a cluster lists what is inside, which is more use than zooming and
+  // hunting. The list links each entry to its own marker.
+  cluster.on('clusterclick', ev => {
+    const children = ev.layer.getAllChildMarkers()
+      .slice()
+      .sort((a, b) => a.options.category.localeCompare(b.options.category));
+    const rows = children.map((m, i) => {
+      const cat = m.options.category;
+      const title = m.getPopup().getContent().match(/class="pop-t">([^<]*)</)?.[1] || CATEGORY[cat].label;
+      const detail = m.getPopup().getContent().match(/class="pop-d">([^<]*)</)?.[1] || '';
+      return `<li><button type="button" data-i="${i}">
+        ${legendIcon(cat)}
+        <span><b>${title}</b>${detail ? `<em>${detail}</em>` : ''}</span>
+      </button></li>`;
+    }).join('');
+
+    const popup = L.popup({ maxWidth: 290, className: 'cluster-popup' })
+      .setLatLng(ev.layer.getLatLng())
+      .setContent(`<div class="pop-t">${children.length} facilities here</div><ul class="cl-list">${rows}</ul>`)
+      .openOn(state.map);
+
+    // hand off to the individual marker when a row is chosen
+    const el = popup.getElement();
+    el?.querySelectorAll('button[data-i]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const marker = children[Number(btn.dataset.i)];
+        state.map.closePopup(popup);
+        state.cluster.zoomToShowLayer(marker, () => marker.openPopup());
+      });
+    });
+  });
+
+  cluster.addTo(state.map);
+  state.layers.facilities = cluster;
 }
 
 // ── layer / marker UI ────────────────────────────────────────────────
@@ -349,7 +412,15 @@ function buildLayerUI() {
 
   for (const box of document.querySelectorAll('[data-layer]')) {
     box.addEventListener('change', () => {
-      const layer = state.layers[box.dataset.layer];
+      const key = box.dataset.layer;
+      const markers = state.markersByCategory?.[key];
+      if (markers) {
+        // facility categories live inside the shared cluster group
+        if (box.checked) state.cluster.addLayers(markers);
+        else state.cluster.removeLayers(markers);
+        return;
+      }
+      const layer = state.layers[key];
       if (!layer) return;
       if (box.checked) layer.addTo(state.map); else state.map.removeLayer(layer);
     });
