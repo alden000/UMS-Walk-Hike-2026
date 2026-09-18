@@ -10,6 +10,7 @@ Run:  python3 tools/fetch_photos.py
 import json
 import os
 import re
+import time
 import urllib.parse
 import urllib.request
 
@@ -23,6 +24,7 @@ WIDTH = 480  # enough for a popup on a phone, small enough to precache
 # checkpoint id -> Commons file
 WANTED = {
     "cp3": "File:Tree Top Walk at MacRitchie, Singapore 1.jpg",
+    "cp4": "File:MacRitchie Nature Trail, Singapore.jpg",
     "cp6": "File:Jelutong Tower 1.jpg",
     "cp11": "File:MacRitchie Reservoir Park.jpg",
 }
@@ -56,6 +58,7 @@ def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     out = {}
     for cp_id, title in WANTED.items():
+        time.sleep(1.5)          # Commons rate-limits a burst of requests
         info = fetch(title)
         name = "%s.jpg" % cp_id
         req = urllib.request.Request(info["thumb"], headers={"User-Agent": "ums-walk-hike-2026/1.0"})

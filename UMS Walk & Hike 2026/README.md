@@ -49,6 +49,12 @@ route" warning — deliberately generous, because under canopy a phone fix wande
 and the reserve's trails run close enough together that a walker on the right
 path can project a couple of hundred metres off it.
 
+Past that distance the nearest point on a route that doubles back could be
+anywhere, so progress is **shown as back at the start** and the whole line reads
+as "still to walk" rather than the walked/remaining split jumping about. The last
+on-route position is kept internally, so stepping back onto the path resumes from
+where you actually were rather than from zero.
+
 The progress bar carries checkpoint ticks and your position, and **stays on
 screen when the panel is minimised** — minimising folds away only the four stat
 tiles, and the distance remaining and percentage move up into the status line.
@@ -123,10 +129,15 @@ licence requires. Three ship with the app, from Wikimedia Commons:
 | MacRitchie Reservoir Park | Larrid31 | CC BY-SA 4.0 |
 
 They are 480 px wide, about 320 KB in total, and precached so they work offline.
+
 Commons has nothing freely licensed for the other landmarks — the Leaning Tree,
-Bukit Kallang, the Syonan Jinja ruins and Venus Drive ruins all came up empty —
-so **the organiser's own event photos are the natural way to fill the rest**, and
-avoid the licensing question entirely.
+Bukit Kallang, the Syonan Jinja ruins, Venus Drive ruins and Windsor Nature Park
+itself all came up empty, and an Openverse search restricted to CC0 and public
+domain returned nothing for any of them. Google Maps photos are not an option:
+they are copyrighted by Google or by the people who uploaded them, and the Maps
+terms forbid copying them out. **The organiser's own event photos are the natural
+way to fill the rest**, and they avoid the licensing question entirely — the
+credit line hides itself when `credit` is empty, so they display clean.
 
 To add one: drop the image in `photos/` and add an entry to `data/photos.json`
 keyed by the checkpoint's `id`:
@@ -284,10 +295,20 @@ current readings. Rather than invent one, the PM2.5 tile shows a trend: the
 1-hour reading against its own 24-hour average, so `↑ rising` means the air is
 getting worse right now and `↓ easing` that the haze is clearing.
 
-Weather refreshes every 5 minutes and when the app returns to the foreground,
-and keeps a 30-minute local copy so the strip still reads something offline. If
-one feed fails on its own — a transient 5xx answers without CORS headers — the
-tile keeps its last good reading and the caption says so, rather than blanking.
+**Refresh cadence.** Every **5 minutes**, plus whenever the app returns to the
+foreground, whenever the browser reports the connection is back, and on demand
+from the refresh button. A 30-minute local copy is kept so the strip still reads
+something offline.
+
+**Reliability.** Nine feeds used to be fetched all at once, and roughly one
+request in six failed — not an HTTP error but a connection-level drop from too
+many simultaneous requests to the same host, which left the card blank until the
+next 5-minute tick. They now run three at a time, most important first, each
+retried up to three times with a short backoff; a whole failed load retries after
+5 s, then 10 s, up to a minute, instead of waiting out the cycle. A feed that
+still fails keeps its last good reading — temperature, humidity, wind, PSI, PM2.5
+and UV all carry over — and the caption says so. Measured before and after over
+repeated cold loads: 5/6, then 8/8.
 
 ## Running it
 

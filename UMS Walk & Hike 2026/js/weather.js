@@ -54,12 +54,46 @@ function codeFromText(text = '') {
   return 'CL';
 }
 
-async function getJSON(path, signal) {
-  const res = await fetch(`${BASE}/${path}`, { signal, cache: 'no-store' });
-  if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
-  const body = await res.json();
-  if (body.code !== 0 && body.code !== undefined && body.errorMsg) throw new Error(body.errorMsg);
-  return body.data;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/**
+ * Fetch one feed, retrying a couple of times.
+ *
+ * Firing every feed at once used to drop roughly one request in six: not an
+ * HTTP error but a connection-level failure, from too many simultaneous
+ * requests to the same host. `runPooled` below caps the concurrency and this
+ * retries whatever still slips through.
+ */
+async function getJSON(path, signal, attempts = 3) {
+  let lastError;
+  for (let i = 0; i < attempts; i++) {
+    if (i) await sleep(400 * i);
+    try {
+      const res = await fetch(`${BASE}/${path}`, { signal, cache: 'no-store' });
+      if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+      const body = await res.json();
+      if (body.code !== 0 && body.code !== undefined && body.errorMsg) throw new Error(body.errorMsg);
+      return body.data;
+    } catch (err) {
+      if (signal?.aborted) throw err;
+      lastError = err;
+    }
+  }
+  throw lastError;
+}
+
+/** Run jobs a few at a time rather than all at once. */
+async function runPooled(jobs, limit = 3) {
+  const results = new Array(jobs.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, jobs.length) }, async () => {
+    while (next < jobs.length) {
+      const i = next++;
+      results[i] = await jobs[i]();
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }
 
 /** Value from the station nearest to (lat, lon), or null if none reported. */
@@ -223,17 +257,21 @@ function writeCache(model) {
  * @param {Array<[number,number]>}   samples   points along the route, for area coverage
  */
 export async function loadWeather(at, samples, { signal } = {}) {
-  const [twoHr, dayFc, temp, humidity, rain, wind, psiData, pmData, uvData] = await Promise.all([
-    getJSON('two-hr-forecast', signal).catch(() => null),
-    getJSON('twenty-four-hr-forecast', signal).catch(() => null),
-    getJSON('air-temperature', signal).catch(() => null),
-    getJSON('relative-humidity', signal).catch(() => null),
-    getJSON('rainfall', signal).catch(() => null),
-    getJSON('wind-speed', signal).catch(() => null),
-    getJSON('psi', signal).catch(() => null),
-    getJSON('pm25', signal).catch(() => null),
-    getJSON('uv', signal).catch(() => null),
-  ]);
+  // Most important first, so a slow tail never leaves the card blank.
+  const feeds = ['two-hr-forecast', 'air-temperature', 'twenty-four-hr-forecast',
+    'psi', 'pm25', 'relative-humidity', 'wind-speed', 'rainfall', 'uv'];
+  const fetched = await runPooled(
+    feeds.map(name => () => getJSON(name, signal).catch(() => null)), 3);
+  const byName = Object.fromEntries(feeds.map((n, i) => [n, fetched[i]]));
+  const twoHr = byName['two-hr-forecast'];
+  const dayFc = byName['twenty-four-hr-forecast'];
+  const temp = byName['air-temperature'];
+  const humidity = byName['relative-humidity'];
+  const rain = byName.rainfall;
+  const wind = byName['wind-speed'];
+  const psiData = byName.psi;
+  const pmData = byName.pm25;
+  const uvData = byName.uv;
 
   if (!twoHr && !dayFc && !temp) {
     const cached = readCache();
@@ -323,22 +361,35 @@ export async function loadWeather(at, samples, { signal } = {}) {
   const nowCode = nowcast?.code || codeFromText(record?.general?.forecast?.text || '');
   const risk = assessRisk(nowCode, slots, air.psi, air.pm25, air.uv);
 
+  const now = {
+    code: nowCode,
+    text: nowcast?.text || record?.general?.forecast?.text || 'No nowcast',
+    tempC: tempNow?.value ?? null,
+    tempStation: tempNow?.station || null,
+    humidity: humidityNow?.value ?? null,
+    rainfallMm: rainNow?.value ?? null,
+    windKt: windNow?.value ?? null,
+    observedAt: tempNow?.at || item?.timestamp || null,
+    validPeriod: item?.valid_period?.text || '',
+    areas: areaNames,
+  };
+  // a station feed that failed on its own keeps its last good value, so the
+  // temperature never falls back to a dash while everything else is fine
+  if (previous?.now) {
+    for (const key of ['tempC', 'humidity', 'windKt']) {
+      if (now[key] == null && previous.now[key] != null) {
+        now[key] = previous.now[key];
+        now.carried = true;
+      }
+    }
+    if (now.observedAt == null) now.observedAt = previous.now.observedAt;
+  }
+
   const model = {
     fetchedAt: Date.now(),
     stale: false,
     risk,
-    now: {
-      code: nowCode,
-      text: nowcast?.text || record?.general?.forecast?.text || 'No nowcast',
-      tempC: tempNow?.value ?? null,
-      tempStation: tempNow?.station || null,
-      humidity: humidityNow?.value ?? null,
-      rainfallMm: rainNow?.value ?? null,
-      windKt: windNow?.value ?? null,
-      observedAt: tempNow?.at || item?.timestamp || null,
-      validPeriod: item?.valid_period?.text || '',
-      areas: areaNames,
-    },
+    now,
     slots,
     air,
     day: {

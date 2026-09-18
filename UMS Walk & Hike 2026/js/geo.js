@@ -149,6 +149,28 @@ export class ProgressTracker {
     const total = this.route.total;
     let candidate = fix.along;
 
+    if (!onRoute) {
+      // A fix this far from the line says nothing useful about progress: the
+      // nearest point on a route that doubles back could be anywhere. Report
+      // the walker as still at the start, so the walked/remaining split on the
+      // line stays meaningful rather than jumping about. The last on-route
+      // value is held internally, so stepping back onto the path resumes from
+      // where they actually were.
+      this.offset = fix.offset;
+      this.onRoute = false;
+      return {
+        along: 0,
+        remaining: total,
+        fraction: 0,
+        offset: fix.offset,
+        onRoute: false,
+        atStart: true,
+        snapped: [fix.lat, fix.lon],
+        speed: null,
+        eta: null,
+      };
+    }
+
     if (this.route.isLoop) {
       // Start and finish are the same place, so a fix there projects equally well
       // to either end of the line. Resolve the tie by where the walker already is.

@@ -28,6 +28,8 @@ const state = {
   lastFix: null,
   lastProgress: null,
   lastAccuracy: null,
+  wxFailures: 0,
+  wxRetry: null,
   hudAutoMinimised: false,
   following: false,
   followTimer: null,
@@ -551,6 +553,8 @@ function wireControls() {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) refreshWeather(false);
   });
+  // coverage drops in and out along the trail; grab fresh data the moment it returns
+  window.addEventListener('online', () => refreshWeather(false));
 }
 
 function hudOpen() {
@@ -691,7 +695,8 @@ function renderProgress(p, accuracy) {
 
   const minimised = $('#hud-body').hidden;
   if (!p.onRoute) {
-    status.textContent = `Off route — ${formatDistance(p.offset)} from the path`;
+    status.textContent =
+      `Off route — ${formatDistance(p.offset)} from the path · progress reset to the start`;
     status.className = 'warn';
   } else {
     const parts = [];
@@ -728,6 +733,7 @@ function startWeather() {
 
 async function refreshWeather(manual) {
   const btn = $('#wx-refresh');
+  clearTimeout(state.wxRetry);
   btn.disabled = true;
   try {
     const centre = state.lastFix
@@ -737,13 +743,21 @@ async function refreshWeather(manual) {
     const samples = [0, 0.25, 0.5, 0.75].map(f => state.route.atDistance(f * state.route.total));
     const model = await loadWeather(centre, samples);
     renderWeather(model);
+    state.wxFailures = 0;
     if (manual) toast('Weather updated');
   } catch (err) {
     console.warn('weather', err);
     const cached = cachedWeather();
     if (cached) renderWeather({ ...cached, stale: true });
-    else $('#wx-note').textContent = 'Weather unavailable — no connection to NEA.';
+    else $('#wx-note').textContent = 'Weather unavailable — retrying…';
     if (manual) toast('Could not reach the NEA feed');
+
+    // Come back quickly rather than waiting out the whole 5-minute cycle: a
+    // failed load is usually a transient blip, and a blank card at the start
+    // line is exactly when it matters most.
+    state.wxFailures = (state.wxFailures || 0) + 1;
+    const wait = Math.min(60000, 5000 * state.wxFailures);
+    state.wxRetry = setTimeout(() => refreshWeather(false), wait);
   } finally {
     btn.disabled = false;
   }
