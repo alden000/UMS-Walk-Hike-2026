@@ -158,6 +158,28 @@ For the service worker and geolocation, deploy over **HTTPS** (GitHub Pages,
 Netlify, Cloudflare Pages — drop the folder in as-is). `localhost` is exempt, so
 local testing works over plain HTTP.
 
+## Deploying to GitHub Pages
+
+`.github/workflows/deploy-pages.yml` publishes this folder as the **site root**,
+so the app is served from `https://<owner>.github.io/<repo>/` rather than a URL
+containing spaces and an ampersand. `tools/` is left out of the published site.
+
+**Pages has to be switched on once by hand**, because the Actions token is not
+allowed to create a Pages site (`configure-pages` fails with *"Create Pages site
+failed: Resource not accessible by integration"*):
+
+1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
+2. Re-run the *Deploy to GitHub Pages* workflow (Actions tab → Run workflow), or
+   just push to the default branch.
+
+Every later push that touches this folder redeploys automatically.
+
+> **Note for private repositories:** GitHub Pages is only available on private
+> repos with a paid plan (Pro / Team / Enterprise). On a Free account, Settings →
+> Pages will refuse until the repository is made public. Also note that unless
+> you are on Enterprise with private Pages, **a published Pages site is public**
+> even when the repository is private.
+
 ## Rebuilding the data
 
 ```bash
