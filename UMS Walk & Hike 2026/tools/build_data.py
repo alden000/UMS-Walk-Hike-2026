@@ -61,8 +61,10 @@ MANUAL_POIS = {
                 "30 Venus Drive. Limited lots \u2014 arrive early; no overnight "
                 "parking. No live availability feed exists for this carpark."
             ),
-            "lat": 1.360478,
-            "lon": 103.826813,
+            # The car park IS the start/finish. Geocoding "30 Venus Drive" put the
+            # pin 95 m away from it, so the position is taken from the route's own
+            # first point instead: it follows the KML if the route is ever redrawn.
+            "at_route_start": True,
             "source": "NParks park listing for Windsor Nature Park",
         }
     ],
@@ -284,7 +286,7 @@ def poi_detail(cat, tags):
     return " · ".join(bits)
 
 
-def build_pois(route_index):
+def build_pois(route, route_index):
     elements = parse_osm()
     seen, out = set(), {}
     for osm_id, lat, lon, tags in elements:
@@ -312,6 +314,8 @@ def build_pois(route_index):
     for cat, items in MANUAL_POIS.items():
         for item in items:
             entry = dict(item)
+            if entry.pop("at_route_start", False):
+                entry["lat"], entry["lon"] = route[0][0], route[0][1]
             offset, along = route_index.project(entry["lat"], entry["lon"])
             entry["offset"] = round(offset)
             entry["along"] = round(along)
@@ -435,7 +439,7 @@ def main():
     }
 
     fetch_osm()
-    pois = build_pois(index)
+    pois = build_pois(route, index)
     trails = build_trails(index)
     checkpoints = build_checkpoints(route, index, pois)
 

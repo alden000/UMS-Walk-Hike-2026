@@ -446,6 +446,7 @@ NParks' own published details:
 | | |
 |---|---|
 | Address | 30 Venus Drive, Singapore 573858 |
+| Position | the route's own start/finish point |
 | Lots | 104 car, 10 motorcycle, 2 accessible |
 | Cost | Free |
 | Hours | 7am–7pm daily; no entry or exit outside those hours |
@@ -467,7 +468,10 @@ Checked, and the popup says so plainly rather than leaving people wondering:
 
 Data for the marker is curated by hand in the `MANUAL_POIS` table in
 `tools/build_data.py`, because OpenStreetMap carries no capacity or fee tags for
-this car park. If a live feed ever appears, that is where to wire it in.
+this car park. Its position is taken from the route's first KML point rather than
+from a geocoded street address — geocoding "30 Venus Drive" put the pin 95 m away
+from where the walk actually starts — so it follows the route if the KML is ever
+redrawn. If a live feed ever appears, that is where to wire it in.
 
 ## Attribution## Attribution
 
