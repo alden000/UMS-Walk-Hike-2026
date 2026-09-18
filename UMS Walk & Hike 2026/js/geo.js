@@ -17,6 +17,13 @@ export function formatDistance(m) {
   return `${(m / 1000).toFixed(m < 10000 ? 2 : 1)} km`;
 }
 
+/** Distance split into number and unit, so the unit can be set smaller. */
+export function splitDistance(m) {
+  if (m == null || !isFinite(m)) return { value: '–', unit: '' };
+  if (m < 1000) return { value: String(Math.round(m)), unit: 'm' };
+  return { value: (m / 1000).toFixed(m < 10000 ? 2 : 1), unit: 'km' };
+}
+
 export function formatDuration(sec) {
   if (sec == null || !isFinite(sec) || sec <= 0) return '–';
   const h = Math.floor(sec / 3600);

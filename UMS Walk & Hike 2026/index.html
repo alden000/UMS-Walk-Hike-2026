@@ -84,19 +84,40 @@
   <div class="checks" id="route-overlays"></div>
 </section>
 
-<!-- ── bottom: weather ───────────────────────────────────────────── -->
-<section id="weather" class="panel" aria-label="Weather along the route">
-  <div class="wx-head">
-    <h2>Weather along the route</h2>
-    <button id="wx-refresh" class="icon-btn small" title="Refresh weather" aria-label="Refresh weather">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 10-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
-    </button>
+<!-- ── bottom: weather & air quality ─────────────────────────────── -->
+<section id="weather" class="panel" data-risk="ok" aria-label="Weather and air quality along the route">
+  <!-- always visible, always refreshing: the one-line summary -->
+  <button id="wx-toggle" class="wx-bar" aria-expanded="true" aria-controls="wx-body">
+    <span class="wx-bar-ico" id="wx-bar-ico"></span>
+    <span class="wx-bar-main">
+      <span class="wx-bar-temp" id="wx-bar-temp">–</span>
+      <span class="wx-bar-txt" id="wx-bar-txt">Loading NEA data…</span>
+    </span>
+    <span class="wx-bar-aq" id="wx-bar-aq"></span>
+    <svg class="wx-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
+
+  <!-- risk banner: shown in both the collapsed and expanded states -->
+  <p id="wx-alert" class="wx-alert" hidden role="status"></p>
+
+  <div id="wx-body">
+    <div class="wx-cards" id="wx-cards">
+      <div class="wx-card skeleton"></div><div class="wx-card skeleton"></div>
+      <div class="wx-card skeleton"></div><div class="wx-card skeleton"></div>
+    </div>
+
+    <h2 class="wx-h">Air quality</h2>
+    <div class="wx-air" id="wx-air"></div>
+
+    <ul class="wx-alerts" id="wx-alerts" hidden></ul>
+
+    <div class="wx-foot">
+      <p class="fineprint" id="wx-note">Loading NEA data…</p>
+      <button id="wx-refresh" class="icon-btn small" title="Refresh now" aria-label="Refresh weather now">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 10-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
+      </button>
+    </div>
   </div>
-  <div class="wx-cards" id="wx-cards">
-    <div class="wx-card skeleton"></div><div class="wx-card skeleton"></div>
-    <div class="wx-card skeleton"></div><div class="wx-card skeleton"></div>
-  </div>
-  <p class="fineprint" id="wx-note">Loading NEA data…</p>
 </section>
 
 <div id="toast" role="status" aria-live="polite"></div>

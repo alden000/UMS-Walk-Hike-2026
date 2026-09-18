@@ -1,15 +1,15 @@
 // UMS Walk & Hike 2026 — interactive route map, progress tracker and weather.
 
-import { Route, ProgressTracker, formatDistance, formatDuration } from './geo.js';
+import { Route, ProgressTracker, formatDistance, splitDistance, formatDuration } from './geo.js';
 import { CATEGORY, poiIcon, legendIcon, checkpointIcon, meIcon, weatherIcon } from './icons.js';
-import { loadWeather, cachedWeather } from './weather.js';
+import { loadWeather, cachedWeather, psiBand, pm25Band, uvBand } from './weather.js';
 
 const $ = sel => document.querySelector(sel);
 
 // Panning and zooming are confined to the route plus this much breathing room.
 const CORRIDOR_M = 1000;
 const FOLLOW_INTERVAL_MS = 1000;
-const WEATHER_REFRESH_MS = 10 * 60 * 1000;
+const WEATHER_REFRESH_MS = 5 * 60 * 1000;
 
 const state = {
   map: null,
@@ -225,9 +225,10 @@ function buildCheckpoints() {
     const remaining = state.route.total - cp.along;
     L.marker([cp.lat, cp.lon], { icon: checkpointIcon(kind, label), zIndexOffset: 600 })
       .bindPopup(
-        `<div class="pop-t">${escapeHtml(cp.name)}</div>` +
+        `<div class="pop-t">${label ? `${label}. ` : ''}${escapeHtml(cp.name)}</div>` +
         (cp.note ? `<div class="pop-d">${escapeHtml(cp.note)}</div>` : '') +
-        `<div class="pop-m">${formatDistance(cp.along)} in · ${formatDistance(remaining)} to finish</div>`)
+        `<div class="pop-m">km ${(cp.along / 1000).toFixed(2)} · ${formatDistance(remaining)} to finish` +
+        (cp.offset > 40 ? ` · ${cp.offset} m off the path` : '') + '</div>')
       .addTo(group);
   });
   state.layers.checkpoints = group.addTo(state.map);
@@ -239,7 +240,7 @@ function buildCheckpoints() {
     .join('');
 
   $('#hud-note').textContent =
-    `${(state.route.total / 1000).toFixed(2)} km loop · ${state.checkpoints.length - 2} checkpoints · ` +
+    `${(state.route.total / 1000).toFixed(2)} km loop · ${state.checkpoints.length - 2} landmarks · ` +
     `${state.route.doc.elevation.gain} m ascent`;
 }
 
@@ -319,6 +320,7 @@ function wireControls() {
   const layersBtn = $('#btn-layers');
   layersBtn.addEventListener('click', () => {
     const open = $('#layers').hidden;
+    if (open && window.innerWidth <= 720 && weatherOpen()) setWeatherOpen(false);
     $('#layers').hidden = !open;
     layersBtn.setAttribute('aria-pressed', String(open));
   });
@@ -333,21 +335,41 @@ function wireControls() {
   // The control stack lives in the band between the HUD and the weather panel.
   // Both change height with their content, so measure them and publish the
   // results as CSS variables.
+  //
+  // Only the summary bar and its risk banner count towards --wx-h: the expanded
+  // forecast body is an overlay. Measuring the whole panel instead would push
+  // the control stack up into the HUD whenever the forecast is open on a phone.
   const measure = () => {
     const root = document.documentElement.style;
-    root.setProperty('--wx-h', `${Math.round($('#weather').offsetHeight)}px`);
+    const bar = $('#wx-toggle').offsetHeight
+      + ($('#wx-alert').hidden ? 0 : $('#wx-alert').offsetHeight);
+    root.setProperty('--wx-h', `${Math.round(bar)}px`);
     root.setProperty('--hud-h', `${Math.round($('#hud').offsetHeight)}px`);
   };
+  state.measurePanels = measure;
   measure();
   if ('ResizeObserver' in window) {
     const ro = new ResizeObserver(measure);
-    ro.observe($('#weather'));
+    ro.observe($('#wx-toggle'));
+    ro.observe($('#wx-alert'));
     ro.observe($('#hud'));
   } else {
     window.addEventListener('resize', measure);
   }
 
-  $('#wx-refresh').addEventListener('click', () => refreshWeather(true));
+  $('#wx-refresh').addEventListener('click', ev => {
+    ev.stopPropagation();
+    refreshWeather(true);
+  });
+
+  // Collapsing the weather panel hands the space back to the map. The summary
+  // bar and any risk banner stay visible and keep refreshing.
+  const wxToggle = $('#wx-toggle');
+  wxToggle.addEventListener('click', () => setWeatherOpen(!weatherOpen()));
+  // phones default to collapsed (map space is scarce); larger screens open
+  const saved = localStorage.getItem('ums-wx-open');
+  setWeatherOpen(saved === null ? window.innerWidth > 720 : saved === '1', true);
+
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) refreshWeather(false);
   });
@@ -431,26 +453,33 @@ function onFixError(err) {
   el.className = err.code === err.PERMISSION_DENIED ? 'warn' : '';
 }
 
+/** Write a distance into a stat tile, with the unit in a smaller span. */
+function setStat(sel, metres) {
+  const { value, unit } = splitDistance(metres);
+  $(sel).innerHTML = `${escapeHtml(value)}${unit ? `<i>${unit}</i>` : ''}`;
+}
+
 function renderProgress(p, accuracy) {
   const status = $('#hud-status');
 
   if (!p) {
     status.textContent = 'Waiting for GPS…';
-    $('#st-done').textContent = '0.00 km';
-    $('#st-left').textContent = formatDistance(state.route.total);
+    setStat('#st-done', 0);
+    setStat('#st-left', state.route.total);
     $('#st-pct').textContent = '0%';
     $('#st-next').textContent = '–';
     return;
   }
 
-  $('#st-done').textContent = formatDistance(p.along);
-  $('#st-left').textContent = formatDistance(p.remaining);
+  setStat('#st-done', p.along);
+  setStat('#st-left', p.remaining);
   $('#st-pct').textContent = `${Math.round(p.fraction * 100)}%`;
 
   const next = state.checkpoints.find(cp => cp.along > p.along + 5);
   if (next) {
-    $('#st-next').textContent = formatDistance(next.along - p.along);
-    $('#st-next-l').textContent = next.id === 'finish' ? 'to finish' : `to ${next.name.replace('Checkpoint ', 'CP ')}`;
+    setStat('#st-next', next.along - p.along);
+    $('#st-next-l').textContent = next.id === 'finish' ? 'to finish' : `to ${shortName(next.name)}`;
+    $('#st-next-l').title = next.name;
   } else {
     $('#st-next').textContent = 'Done';
     $('#st-next-l').textContent = 'finished';
@@ -524,9 +553,58 @@ function centreOfRoute() {
   return { lat: (b.minLat + b.maxLat) / 2, lon: (b.minLon + b.maxLon) / 2 };
 }
 
+function weatherOpen() {
+  return $('#wx-toggle').getAttribute('aria-expanded') === 'true';
+}
+
+function setWeatherOpen(open, initial = false) {
+  $('#wx-toggle').setAttribute('aria-expanded', String(open));
+  $('#wx-body').hidden = !open;
+  // On a phone the open forecast is a bottom sheet covering most of the map, so
+  // the control stack steps aside rather than sitting uselessly behind it.
+  document.body.classList.toggle('wx-open', open);
+  if (open) closeLayers();
+  if (!initial) localStorage.setItem('ums-wx-open', open ? '1' : '0');
+}
+
+function closeLayers() {
+  $('#layers').hidden = true;
+  $('#btn-layers').setAttribute('aria-pressed', 'false');
+}
+
 function renderWeather(m) {
   const now = m.now;
-  const cards = [
+  const risk = m.risk || { level: 'ok', alerts: [] };
+
+  // ── summary bar: the part that stays on screen when collapsed ──
+  $('#weather').dataset.risk = risk.level;
+  $('#wx-bar-ico').innerHTML = weatherIcon(now.code);
+  $('#wx-bar-temp').textContent = now.tempC != null ? `${now.tempC.toFixed(1)}°C` : '–';
+  $('#wx-bar-txt').textContent = now.text;
+
+  const aq = [];
+  if (m.air.psi != null) aq.push(`PSI ${m.air.psi}`);
+  if (m.air.pm25 != null) aq.push(`PM2.5 ${m.air.pm25}`);
+  $('#wx-bar-aq').textContent = aq.join(' · ');
+
+  // The banner carries only the single most serious warning, so it stays one or
+  // two lines on a phone. The rest are listed in the expanded panel.
+  const alert = $('#wx-alert');
+  if (risk.alerts.length) {
+    const [lead, ...rest] = risk.alerts;
+    alert.innerHTML =
+      `${risk.level === 'severe' ? '⚠ ' : ''}${escapeHtml(lead.text)}` +
+      (rest.length ? ` <span class="wx-more">+${rest.length} more</span>` : '');
+    alert.title = risk.alerts.map(a => a.text).join('\n');
+    alert.hidden = false;
+  } else {
+    alert.hidden = true;
+    alert.removeAttribute('title');
+  }
+  state.measurePanels?.();
+
+  // ── forecast cards ──
+  $('#wx-cards').innerHTML = [
     `<div class="wx-card now">
        <span class="wx-when">Now</span>
        ${weatherIcon(now.code)}
@@ -540,30 +618,60 @@ function renderWeather(m) {
         <span class="wx-temp">${s.tempC != null ? `~${Math.round(s.tempC)}°C` : '–'}</span>
         <span class="wx-desc">${escapeHtml(s.text)}</span>
       </div>`),
-  ];
-  $('#wx-cards').innerHTML = cards.join('');
+  ].join('');
 
+  // ── air quality tiles ──
+  const arrow = { rising: '↑', easing: '↓', steady: '→' }[m.air.trend] || '';
+  const tile = (key, value, band, sub) => {
+    if (value == null) return '';
+    return `<div class="wx-aq" data-level="${band ? band.level : 'ok'}">
+      <span class="wx-aq-k">${key}</span>
+      <span class="wx-aq-v">${value}</span>
+      <span class="wx-aq-b">${escapeHtml([band?.label, sub].filter(Boolean).join(' · '))}</span>
+    </div>`;
+  };
+  $('#wx-air').innerHTML = [
+    tile('PSI 24h', m.air.psi, psiBand(m.air.psi), ''),
+    tile('PM2.5 1h', m.air.pm25, pm25Band(m.air.pm25),
+      m.air.trend ? `${arrow} ${m.air.trend}` : ''),
+    // UV reads 0 all night; the tile only earns its place in daylight
+    m.air.uv ? tile('UV index', m.air.uv, uvBand(m.air.uv), '') : '',
+  ].join('') || '<p class="fineprint">Air-quality data unavailable.</p>';
+
+  // ── every warning, in full, where there is room for them ──
+  const list = $('#wx-alerts');
+  if (risk.alerts.length > 1) {
+    list.innerHTML = risk.alerts
+      .map(a => `<li data-level="${a.level}">${escapeHtml(a.text)}</li>`).join('');
+    list.hidden = false;
+  } else {
+    list.hidden = true;
+  }
+
+  // ── caption ──
   const bits = [];
   if (now.humidity != null) bits.push(`${Math.round(now.humidity)}% RH`);
   if (now.windKt != null) bits.push(`wind ${Math.round(now.windKt * 1.852)} km/h`);
   if (now.rainfallMm) bits.push(`rain ${now.rainfallMm} mm`);
   if (m.day.low != null) bits.push(`today ${m.day.low}–${m.day.high}°C`);
-
   const when = now.observedAt
-    ? new Date(now.observedAt).toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Singapore' })
+    ? new Date(now.observedAt).toLocaleTimeString('en-SG',
+      { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Singapore' })
     : '';
   bits.push(`NEA ${when || 'live'}`);
+  if (m.air.stale) bits.push('air quality from last reading');
   if (m.stale) bits.push('offline copy');
-  bits.push('+2/4/6 h temps estimated');
 
   const note = $('#wx-note');
   note.textContent = bits.join(' · ');
   const areas = now.areas?.length ? now.areas.join(', ') : 'the route';
   note.title =
-    `NEA nowcast for ${areas} (${now.validPeriod || 'next 2 hours'}). ` +
+    `Nowcast for ${areas} (${now.validPeriod || 'next 2 hours'}). ` +
     `+2/4/6 h conditions come from NEA's 24-hour forecast for the ${m.day.region} region; ` +
     `their temperatures are estimated by tracking the current reading along today's ` +
-    `${m.day.low}–${m.day.high}°C forecast range.`;
+    `${m.day.low}\u2013${m.day.high}\u00b0C forecast range. ` +
+    `PSI and PM2.5 are the ${m.air.region} region readings; NEA publishes no PSI forecast, ` +
+    `so the trend compares the 1-hour PM2.5 against its own 24-hour average.`;
 }
 
 // ── misc ─────────────────────────────────────────────────────────────
@@ -574,6 +682,14 @@ function toast(msg) {
   el.classList.add('on');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('on'), 2600);
+}
+
+/** Squeeze a landmark name into the narrow "next checkpoint" label. */
+function shortName(name) {
+  const trimmed = name
+    .replace(/^(The|HSBC)\s+/i, '')
+    .replace(/\s+(Boardwalk|Ruins|Memorial|Station|Park)$/i, '');
+  return trimmed.length > 15 ? `${trimmed.slice(0, 14)}…` : trimmed;
 }
 
 function escapeHtml(s) {

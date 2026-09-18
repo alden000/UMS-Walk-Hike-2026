@@ -9,6 +9,8 @@
   --accent-ink: #062018;
   --route: #ff5a3c;
   --warn: #ffb648;
+  --danger: #ff4242;
+  --danger-ink: #ffd9d9;
   --radius: 14px;
   --shadow: 0 6px 24px rgba(0, 0, 0, .45);
   --safe-t: env(safe-area-inset-top, 0px);
@@ -42,6 +44,8 @@ html, body {
 
 /* ── generic panel chrome ─────────────────────────────────────── */
 .panel {
+  -webkit-user-select: none;
+  user-select: none;
   position: fixed;
   z-index: 500;
   background: var(--panel);
@@ -80,7 +84,8 @@ h2:first-of-type { margin-top: 0; }
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 11px;
-  background: var(--panel);
+  /* near-opaque: map markers passing behind a control must not read as part of it */
+  background: rgba(14, 22, 20, .95);
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   color: var(--ink);
@@ -146,8 +151,22 @@ h2:first-of-type { margin-top: 0; }
   border-radius: 9px;
   text-align: center;
 }
-.stat-v { font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; }
-.stat-l { font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-dim); }
+.stat-v {
+  font-size: 16px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;      /* "6.01 km" must never wrap onto two lines */
+}
+.stat-v i { font-style: normal; font-size: .68em; font-weight: 600; margin-left: 1.5px; opacity: .75; }
+.stat-l {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* progress bar with checkpoint ticks */
 .bar {
@@ -263,22 +282,132 @@ h2:first-of-type { margin-top: 0; }
 .checks .n { flex: 1; }
 .checks .c { font-size: 11px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 
-/* ── weather (bottom) ─────────────────────────────────────────── */
+/* ── weather & air quality (bottom) ───────────────────────────── */
 #weather {
   left: calc(10px + var(--safe-l));
   right: calc(10px + var(--safe-r));
   bottom: calc(10px + var(--safe-b));
   max-width: 560px;
   margin: 0 auto;
-  padding: 10px 12px 11px;
+  padding: 0;
+  overflow: hidden;
 }
-.wx-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.wx-head h2 { margin: 0; }
+
+/* the always-on summary line: tap anywhere to expand or collapse */
+.wx-bar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 48px;
+  padding: 9px 12px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.wx-bar-ico { flex: none; display: block; width: 30px; height: 30px; }
+.wx-bar-ico .wx-ico { width: 30px; height: 30px; }
+.wx-bar-main { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 7px; }
+.wx-bar-temp { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.wx-bar-txt {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wx-bar-aq {
+  flex: none;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-dim);
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, .07);
+}
+.wx-chev {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--ink-dim);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform .2s;
+}
+.wx-bar[aria-expanded="false"] .wx-chev { transform: rotate(180deg); }
+
+/* risk banner — visible collapsed or expanded, because that is the point */
+.wx-alert {
+  margin: 0;
+  padding: 7px 12px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  border-top: 1px solid var(--line);
+}
+.wx-more {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, .16);
+  font-size: 10.5px;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+/* the full warning list, expanded panel only */
+.wx-alerts { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.wx-alerts[hidden] { display: none; }
+.wx-alerts li {
+  padding: 6px 9px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  background: rgba(255, 255, 255, .05);
+  color: var(--ink-dim);
+}
+.wx-alerts li[data-level="warn"] { background: rgba(255, 182, 72, .13); color: var(--warn); }
+.wx-alerts li[data-level="severe"] { background: rgba(255, 66, 66, .16); color: #ff9c9c; }
+.wx-alert[hidden] { display: none; }
+
+#weather[data-risk="warn"] .wx-alert { background: rgba(255, 182, 72, .16); color: var(--warn); }
+#weather[data-risk="severe"] { border-color: rgba(255, 66, 66, .55); }
+#weather[data-risk="severe"] .wx-alert { background: rgba(255, 66, 66, .2); color: var(--danger-ink); }
+#weather[data-risk="severe"] .wx-bar-temp { color: #ff8a8a; }
+/* a red edge, so a storm warning reads at a glance in bright sun */
+#weather[data-risk="severe"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 2px var(--danger);
+  pointer-events: none;
+  animation: alertPulse 2s ease-in-out infinite;
+}
+@keyframes alertPulse { 50% { opacity: .35; } }
+
+#wx-body { padding: 0 12px 11px; }
+#wx-body[hidden] { display: none; }
+
+.wx-h {
+  margin: 12px 0 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: var(--ink-dim);
+}
+
 .wx-cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
-  margin-top: 9px;
 }
 .wx-card {
   display: flex;
@@ -292,8 +421,13 @@ h2:first-of-type { margin-top: 0; }
   min-height: 92px;
 }
 .wx-card.now { background: rgba(53, 211, 154, .13); box-shadow: inset 0 0 0 1px rgba(53, 211, 154, .3); }
+#weather[data-risk="severe"] .wx-card.now {
+  background: rgba(255, 66, 66, .16);
+  box-shadow: inset 0 0 0 1px rgba(255, 66, 66, .45);
+}
 .wx-when { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-dim); }
 .wx-card.now .wx-when { color: var(--accent); }
+#weather[data-risk="severe"] .wx-card.now .wx-when { color: #ff8a8a; }
 .wx-ico { width: 30px; height: 30px; margin: 1px 0; }
 .wx-temp { font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; }
 .wx-desc {
@@ -305,11 +439,30 @@ h2:first-of-type { margin-top: 0; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.wx-card.skeleton {
-  background: rgba(255, 255, 255, .05);
-  animation: pulse 1.4s ease-in-out infinite;
-}
+.wx-card.skeleton { animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .45; } }
+
+/* air quality tiles */
+.wx-air { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 6px; }
+.wx-aq {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .05);
+  box-shadow: inset 0 0 0 1px transparent;
+}
+.wx-aq[data-level="warn"] { background: rgba(255, 182, 72, .14); box-shadow: inset 0 0 0 1px rgba(255, 182, 72, .3); }
+.wx-aq[data-level="severe"] { background: rgba(255, 66, 66, .17); box-shadow: inset 0 0 0 1px rgba(255, 66, 66, .4); }
+.wx-aq-k { font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-dim); }
+.wx-aq-v { font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.wx-aq-b { font-size: 10px; color: var(--ink-dim); }
+.wx-aq[data-level="warn"] .wx-aq-v { color: var(--warn); }
+.wx-aq[data-level="severe"] .wx-aq-v { color: #ff8a8a; }
+
+.wx-foot { display: flex; align-items: flex-end; gap: 8px; }
+.wx-foot .fineprint { flex: 1; margin-top: 10px; }
 
 /* ── map markers ──────────────────────────────────────────────── */
 .pin { width: 28px; height: 28px; }
@@ -384,44 +537,118 @@ h2:first-of-type { margin-top: 0; }
 }
 #toast.on { opacity: 1; transform: translate(-50%, 0); }
 
-/* ── small screens ────────────────────────────────────────────── */
-/* Below this width the weather panel spans the full width, so the control stack
-   has to sit above it rather than beside it. */
+/* ── phones: the event device ─────────────────────────────────── */
+/* Below this width the weather panel spans the full width, so the control
+   stack has to sit between the two panels rather than beside them. */
 @media (max-width: 720px) {
+  /* the forecast body overlays the map instead of pushing the controls around */
+  #weather {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - var(--hud-h) - 34px - var(--safe-t) - var(--safe-b));
+  }
+  #wx-body {
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  .wx-bar, .wx-alert { flex: none; }
+
+  /* forecast sheet open: the stack would only sit behind it */
+  body.wx-open #controls,
+  body.wx-open #layers {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s;
+  }
+
   #controls {
-    top: calc(var(--hud-h) + 18px + var(--safe-t));
-    bottom: calc(var(--wx-h) + 18px + var(--safe-b));
+    top: calc(var(--hud-h) + 14px + var(--safe-t));
+    bottom: calc(var(--wx-h) + 14px + var(--safe-b));
     transform: none;
     justify-content: flex-end;
-    gap: 6px;
+    gap: 8px;
   }
-  #controls .icon-btn { width: 38px; height: 38px; border-radius: 10px; }
-  #controls .icon-btn svg { width: 19px; height: 19px; }
-
   #layers {
-    top: calc(var(--hud-h) + 18px + var(--safe-t));
-    bottom: calc(var(--wx-h) + 18px + var(--safe-b));
-    right: calc(54px + var(--safe-r));
+    top: calc(var(--hud-h) + 14px + var(--safe-t));
+    bottom: calc(var(--wx-h) + 14px + var(--safe-b));
+    right: calc(62px + var(--safe-r));
     transform: none;
     max-height: none;
+    padding: 12px;
   }
-  /* a compact drawer fits more of the list without scrolling */
-  #layers { padding: 11px; }
-  #layers .seg button { padding: 6px 9px; }
-  #layers .seg button .sw { width: 18px; height: 18px; }
-  #layers h2 { margin: 11px 0 6px; }
+  #layers .seg button { padding: 9px 10px; }
+  #layers h2 { margin: 12px 0 6px; }
+  /* comfortable targets for a moving, sweaty thumb */
+  #layers .checks label { padding: 9px 4px; }
 }
 
 @media (max-width: 480px) {
-  #hud { width: calc(100vw - 20px - var(--safe-l) - var(--safe-r)); }
+  #hud {
+    top: calc(8px + var(--safe-t));
+    left: calc(8px + var(--safe-l));
+    width: calc(100vw - 16px - var(--safe-l) - var(--safe-r));
+    padding: 10px 12px 11px;
+  }
+  #weather {
+    left: calc(8px + var(--safe-l));
+    right: calc(8px + var(--safe-r));
+    bottom: calc(8px + var(--safe-b));
+  }
+  #controls { right: calc(8px + var(--safe-r)); }
+
+  /* bigger numerals: these are read at arm's length, outdoors, in sunlight */
+  .stat { padding: 8px 2px; }
+  .stat-v { font-size: 16px; }
+  .stat-l { font-size: 8.5px; letter-spacing: .02em; }
+  h1 { font-size: 14px; }
+
+  .wx-bar { padding: 8px 10px; }
+  .wx-bar-temp { font-size: 16px; }
+  .wx-bar-aq { font-size: 11px; padding: 3px 7px; }
+  #wx-body { padding: 0 10px 10px; }
   .wx-ico { width: 26px; height: 26px; }
-  .stat-v { font-size: 14px; }
+  .wx-card { min-height: 84px; }
+  .wx-aq-v { font-size: 15px; }
 }
 
-@media (max-height: 560px) {
-  #weather { padding: 7px 10px 8px; }
-  .wx-card { min-height: 80px; }
+/* very small / split screens: drop the least critical bits */
+@media (max-width: 360px) {
+  .wx-bar-aq { display: none; }        /* the numbers stay in the expanded panel */
+  .stat-v { font-size: 14px; }
+  .stats { gap: 4px; }
+}
+
+@media (max-height: 620px) {
+  .wx-card { min-height: 76px; }
   .wx-desc { -webkit-line-clamp: 1; }
+  .wx-cards { gap: 5px; }
+}
+
+/* ── tablets and desktop: pre-event planning ──────────────────── */
+@media (min-width: 721px) {
+  #hud { width: min(400px, 34vw); }
+  #weather { max-width: 620px; }
+  .wx-bar-txt { font-size: 13px; }
+  .wx-card { min-height: 100px; }
+  .wx-desc { -webkit-line-clamp: 2; }
+}
+
+@media (min-width: 1100px) {
+  #hud { width: 400px; }
+  .stat-v { font-size: 18px; }
+  #weather { max-width: 680px; }
+}
+
+/* a mouse gets hover affordances a finger never sees */
+@media (hover: hover) and (pointer: fine) {
+  .icon-btn:hover { background: rgba(32, 48, 44, .95); border-color: rgba(255, 255, 255, .2); }
+  .icon-btn[aria-pressed="true"]:hover { background: #48e0a9; }
+  .seg button:hover { background: rgba(255, 255, 255, .09); }
+  .seg button[aria-checked="true"]:hover { background: #48e0a9; }
+  .wx-bar:hover { background: rgba(255, 255, 255, .04); }
+  .checks label:hover { background: rgba(255, 255, 255, .06); }
 }
 
 @media (prefers-reduced-motion: reduce) {

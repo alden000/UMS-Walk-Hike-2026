@@ -291,67 +291,82 @@ def build_pois(route_index):
     return out
 
 
-def build_checkpoints(route, index, pois, spacing_m=2000):
-    """Provisional checkpoints every `spacing_m`, snapped to a named hut/landmark
-    when one sits within 300 m of that point on the route."""
-    total = index.cum[-1]
-    named = [
-        p
-        for cat in ("shelter", "toilet", "water")
-        for p in pois.get(cat, [])
-        if p["name"] not in ("Shelter", "Toilet", "Drinking water")
-    ]
+# Event checkpoints: the landmarks and attractions the route actually passes,
+# picked from the OpenStreetMap extract (see tools/landmarks note in README).
+# Coordinates are the landmark itself; `along` and `offset` are derived from the
+# route, so a checkpoint slightly off the path still reports honestly.
+#
+# Start and finish are pinned to the KML's own first/last point, which is the
+# Windsor Nature Park carpark.
+LANDMARKS = [
+    ("cp1", "Venus Drive Ruins", "Old kampong ruins beside the Squirrel Trail boardwalk",
+     1.360788, 103.822113),
+    ("cp2", "MacRitchie Ranger Station", "Toilets, drinking water and an AED",
+     1.357037, 103.812658),
+    ("cp3", "HSBC TreeTop Walk", "250 m suspension bridge between Bukit Peirce and Bukit Kallang",
+     1.361047, 103.811396),
+    ("cp4", "Bukit Kallang", "High point of the route at the TreeTop Walk's far end",
+     1.361352, 103.809444),
+    ("cp5", "Petaling Boardwalk", "Boardwalk down through Petaling Trail to Petaling Hut",
+     1.359114, 103.808382),
+    ("cp6", "Jelutong Tower", "Seven-storey observation tower over the forest canopy",
+     1.351378, 103.806397),
+    ("cp7", "Syonan Jinja Ruins", "Wartime Shinto shrine remains - a short detour off the path",
+     1.348265, 103.813815),
+    ("cp8", "Jering Hut", "Shelter on the Jering Trail, with an AED",
+     1.340957, 103.820021),
+    ("cp9", "The Leaning Tree of MacRitchie", "Landmark tree on the Chemperai Trail",
+     1.343695, 103.826444),
+    ("cp10", "Lim Bo Seng Memorial", "War memorial and grave above the reservoir shore",
+     1.341900, 103.830987),
+    ("cp11", "MacRitchie Reservoir Park", "Main park hub - cafe, toilets, water point and AED",
+     1.342473, 103.834908),
+    ("cp12", "Petai Trail Boardwalk", "Last boardwalk stretch before the return to Windsor",
+     1.350430, 103.831233),
+]
 
-    def at_distance(d):
-        for i in range(1, len(index.cum)):
-            if index.cum[i] >= d:
-                seg = index.cum[i] - index.cum[i - 1]
-                t = 0.0 if seg == 0 else (d - index.cum[i - 1]) / seg
-                a, b = route[i - 1], route[i]
-                return [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]
-        return route[-1][:2]
+
+def build_checkpoints(route, index, pois):
+    """Landmark checkpoints, ordered by distance along the route."""
+    del pois  # kept for signature stability; landmarks are curated, not derived
+    total = index.cum[-1]
 
     cps = [
         {
             "id": "start",
             "name": "Start / Finish",
+            "note": "Windsor Nature Park Carpark",
             "along": 0,
+            "offset": 0,
             "lat": route[0][0],
             "lon": route[0][1],
-            "note": "Windsor Nature Park",
         }
     ]
-    n = 1
-    d = spacing_m
-    while d < total - 500:
-        lat, lon = at_distance(d)
-        label, note = "Checkpoint %d" % n, ""
-        near = sorted(
-            (p for p in named if abs(p["along"] - d) < 300),
-            key=lambda p: abs(p["along"] - d),
-        )
-        if near:
-            note = near[0]["name"]
+
+    for cp_id, name, note, lat, lon in LANDMARKS:
+        offset, along = index.project(lat, lon)
         cps.append(
             {
-                "id": "cp%d" % n,
-                "name": label,
-                "along": round(d),
-                "lat": round(lat, 6),
-                "lon": round(lon, 6),
+                "id": cp_id,
+                "name": name,
                 "note": note,
+                "along": round(along),
+                "offset": round(offset),
+                "lat": lat,
+                "lon": lon,
             }
         )
-        n += 1
-        d += spacing_m
+
+    cps.sort(key=lambda c: c["along"])
     cps.append(
         {
             "id": "finish",
             "name": "Finish",
+            "note": "Windsor Nature Park Carpark",
             "along": round(total),
+            "offset": 0,
             "lat": route[-1][0],
             "lon": route[-1][1],
-            "note": "Windsor Nature Park",
         }
     )
     return cps
@@ -415,7 +430,10 @@ def main():
     json.dump(
         {
             "provisional": True,
-            "note": "Spacing-based placeholders - replace with the organiser's official checkpoints.",
+            "note": (
+                "Landmarks and attractions along the route, not the organiser's "
+                "official checkpoints - replace before the event if they differ."
+            ),
             "checkpoints": checkpoints,
         },
         open(os.path.join(DATA_DIR, "checkpoints.json"), "w"),

@@ -45,12 +45,21 @@ gives the position as *km along the route* plus how far off the path it sits.
 | 🟣 | Drink / snack machines | 4 |
 | 🟢 | Shelters & huts | 37 (off by default — they are dense) |
 
+Checkpoints are the landmarks listed below.
+
 **Weather** — "now" plus +2 h, +4 h and +6 h, as icons with temperatures in °C,
 from NEA. See [Weather sources](#weather-sources).
 
 **Controls** — zoom in / out, centre on my position, **Follow me** (re-centres
 every second; also available as a checkbox in the layers drawer), fit the whole
 route, and a base-map switcher.
+
+**Built for the phone** — the event device is a phone in one hand, so the layout
+is driven from there: the forecast collapses to a single line, panels measure
+themselves and keep the control stack clear, tap targets stay finger-sized, the
+distance read-outs are large enough for arm's length in sunlight, and the whole
+thing is checked at 320 px as well as 390 px. Tablet and desktop get the roomier
+version for planning: the forecast opens by default and the panels widen.
 
 **Offline** — a service worker precaches the app shell and all route data, and
 caches map tiles as you view them (capped at 1200). Open the app over the route
@@ -111,38 +120,96 @@ array in `data/pois.json`; every entry needs `name`, `lat`, `lon`, `offset`
 (metres off the route), `along` (metres from the start) and optionally `detail`.
 Running `tools/build_data.py` recomputes `offset` and `along` for you.
 
-### Checkpoints — provisional
+### Checkpoints — landmarks along the route
 
-**The supplied KML contains no checkpoint placemarks — only the track.** The eight
-checkpoints shipped in `data/checkpoints.json` are therefore placeholders, spaced
-every 2 km and snapped to a named NParks hut where one is within 300 m (Dillenia
-Hut, Chemperai Hut, Rambai Hut and so on).
+**The supplied KML contains no checkpoint placemarks — only the track.** The
+twelve checkpoints in `data/checkpoints.json` are therefore the landmarks and
+attractions the route actually passes, picked from the OpenStreetMap extract and
+ordered by distance. Start and finish are pinned to the KML's own first and last
+point, the **Windsor Nature Park carpark**.
 
-Replace them with the organiser's official list before the event. The file is
-plain JSON and is the only thing you need to edit:
+| km | Landmark | |
+|---:|---|---|
+| 0.00 | **Start / Finish** — Windsor Nature Park Carpark | |
+| 0.67 | Venus Drive Ruins | old kampong ruins by the Squirrel Trail boardwalk |
+| 2.43 | MacRitchie Ranger Station | toilets, drinking water, AED |
+| 3.08 | **HSBC TreeTop Walk** | 250 m suspension bridge |
+| 3.31 | Bukit Kallang | high point, at the bridge's far end |
+| 3.60 | Petaling Boardwalk | down to Petaling Hut |
+| 4.68 | **Jelutong Tower** | seven-storey canopy observation tower |
+| 5.55 | Syonan Jinja Ruins | wartime shrine — 215 m off the path |
+| 7.34 | Jering Hut | shelter with an AED |
+| 8.47 | The Leaning Tree of MacRitchie | on the Chemperai Trail |
+| 9.39 | Lim Bo Seng Memorial | war memorial and grave |
+| 9.99 | MacRitchie Reservoir Park | cafe, toilets, water, AED |
+| 11.38 | Petai Trail Boardwalk | last boardwalk before Windsor |
+| 13.25 | **Finish** — Windsor Nature Park Carpark | |
+
+A checkpoint more than 40 m off the path says so in its popup, so nobody hunts
+for the Syonan Jinja ruins from the trail itself.
+
+These are landmarks, not the organiser's official checkpoints. If the organiser
+publishes a different list, replace the file — it is plain JSON and the only
+thing you need to edit:
 
 ```json
-{ "id": "cp1", "name": "Checkpoint 1", "along": 2000,
-  "lat": 1.355298, "lon": 103.813817, "note": "Water point" }
+{ "id": "cp1", "name": "Venus Drive Ruins", "note": "Old kampong ruins",
+  "along": 668, "offset": 0, "lat": 1.360788, "lon": 103.822113 }
 ```
 
 `along` is metres from the start and drives the "distance to next checkpoint"
-readout and the ticks on the progress bar.
+readout and the ticks on the progress bar; `build_data.py` recomputes `along`
+and `offset` from `lat`/`lon` for anything you add to its `LANDMARKS` table.
 
-### Weather sources
+### Weather, air quality and risk
 
 All official NEA feeds via data.gov.sg — open, keyless, CORS-enabled:
 
-| Card | Source |
+| Reading | Source |
 |---|---|
-| **Now** — condition | `two-hr-forecast`, nowcast for the forecast areas the route crosses (Bishan, Central Water Catchment, Novena). Where they disagree, the wettest wins, so the card warns rather than reassures. |
-| **Now** — temperature, humidity, wind, rain | `air-temperature`, `relative-humidity`, `wind-speed`, `rainfall` — live readings from the station nearest you. |
+| **Now** — condition | `two-hr-forecast`, nowcast for the forecast areas the route crosses (Bishan, Central Water Catchment, Novena). Where they disagree the wettest wins, so the card warns rather than reassures. |
+| **Now** — temperature, humidity, wind, rain | `air-temperature`, `relative-humidity`, `wind-speed`, `rainfall` — the station nearest you. |
 | **+2 h** — condition | The 2-hour nowcast, which is exactly this window. |
-| **+4 h / +6 h** — condition | `twenty-four-hr-forecast`, the period covering that time, for the **central** region. |
-| **+2/4/6 h** — temperature | **Estimated.** NEA publishes a daily high/low, not an hourly temperature forecast, so the app tracks the current reading along a diurnal curve (minimum ~06:00, maximum ~14:00) bounded by today's forecast range. Shown with a `~` and labelled in the caption; the caption's tooltip spells out the derivation. |
+| **+4 h / +6 h** — condition | `twenty-four-hr-forecast`, the period covering that time, central region. |
+| **+2/4/6 h** — temperature | **Estimated.** NEA publishes a daily high/low, not an hourly temperature forecast, so the app tracks the current reading along a diurnal curve (minimum ~06:00, maximum ~14:00) bounded by today's range. Shown with a `~`. |
+| **PSI** | `psi` — 24-hour PSI for the central region, the figure NEA's own health advisories use. |
+| **PM2.5** | `pm25` — 1-hour PM2.5 for the central region. |
+| **UV index** | `uv` — hidden at night, when it reads 0. |
 
-Weather refreshes every 10 minutes and when the app returns to the foreground,
-and keeps a 30-minute local copy so the strip still reads something offline.
+**Collapsing.** The panel folds down to a one-line summary — condition, icon,
+temperature, PSI and PM2.5 — which keeps refreshing on the same 5-minute cycle
+whether it is open or shut. Phones start collapsed (map space is scarce),
+tablets and desktops start open, and your choice is remembered. On a phone the
+open panel is a bottom sheet, so the control stack steps aside while it is up.
+
+**Risk banner.** Shown in both states, because that is the point of it:
+
+| | Raised when |
+|---|---|
+| **Red — severe** | Thundery showers now or within 2 h (lightning); heavy rain now; PSI above 100; PM2.5 above 150 |
+| **Amber — warn** | Thundery showers later today; showers now or within 2 h; PSI 51–100; PM2.5 56–150; UV 6 or above |
+| none | everything below those thresholds |
+
+Red also puts a pulsing border on the whole panel, so a storm warning is
+readable at a glance in bright sun. The banner carries the single most serious
+warning plus a `+n more` chip; the full list sits in the expanded panel.
+
+**On lightning specifically** — NEA's lightning-strike feed is not public
+(`/lightning` returns *Missing Authentication Token*), so the app cannot show
+live strikes. It infers lightning risk from the official forecast codes `TL`,
+`HT` and `HG` — thundery showers, heavy thundery showers, and heavy thundery
+showers with gusty winds. **Treat the banner as a prompt to check the sky and
+NEA's own advisories, not as a strike detector.**
+
+**On a PSI forecast** — NEA publishes no PSI or PM2.5 forecast feed, only
+current readings. Rather than invent one, the PM2.5 tile shows a trend: the
+1-hour reading against its own 24-hour average, so `↑ rising` means the air is
+getting worse right now and `↓ easing` that the haze is clearing.
+
+Weather refreshes every 5 minutes and when the app returns to the foreground,
+and keeps a 30-minute local copy so the strip still reads something offline. If
+one feed fails on its own — a transient 5xx answers without CORS headers — the
+tile keeps its last good reading and the caption says so, rather than blanking.
 
 ## Running it
 

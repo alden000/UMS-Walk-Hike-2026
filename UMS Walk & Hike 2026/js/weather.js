@@ -1,4 +1,5 @@
-// Weather for the route, from NEA's official real-time APIs on data.gov.sg.
+// Weather and air quality for the route, from NEA's official real-time APIs on
+// data.gov.sg.
 //
 //   two-hr-forecast          nowcast per forecast area (47 areas island-wide)
 //   twenty-four-hr-forecast  period forecasts per region + the day's range
@@ -6,14 +7,24 @@
 //   relative-humidity        live station observations (%)
 //   rainfall                 live station observations (mm in the last 5 min)
 //   wind-speed               live station observations (knots)
+//   psi                      24-hour PSI + sub-indices, per region
+//   pm25                     1-hour PM2.5, per region
+//   uv                       UV index (daylight hours only)
 //
 // All are open, keyless and CORS-enabled. Docs: https://data.gov.sg/datasets
 
 import { haversine } from './geo.js';
 
 const BASE = 'https://api-open.data.gov.sg/v2/real-time/api';
-const CACHE_KEY = 'ums-wx-cache-v1';
+const CACHE_KEY = 'ums-wx-cache-v2';
 const CACHE_MAX_AGE = 30 * 60 * 1000;   // show stale data for up to 30 min offline
+
+// Forecast codes that mean lightning is possible. NEA's public API has no
+// lightning-strike feed (the `lightning` endpoint is not open), so these codes
+// are the official signal available.
+const STORM_CODES = new Set(['TL', 'HT', 'HG']);
+const HEAVY_CODES = new Set(['HR', 'HS', 'SR', 'SK']);
+const WET_CODES = new Set(['RA', 'SH', 'PS', 'LS', 'LR', 'DR', 'WR', 'WS']);
 
 /** NEA forecast wording -> the icon code used by the 24-hour forecast API. */
 function codeFromText(text = '') {
@@ -70,16 +81,16 @@ function nearestReading(payload, lat, lon) {
 
 /** The NEA forecast areas closest to a handful of points along the route. */
 function areasAlongRoute(areaMetadata, samples) {
-  const picked = new Map();
+  const picked = new Set();
   for (const [lat, lon] of samples) {
     let best = null;
     for (const a of areaMetadata) {
       const d = haversine(lat, lon, a.label_location.latitude, a.label_location.longitude);
       if (!best || d < best.d) best = { d, name: a.name };
     }
-    if (best && !picked.has(best.name)) picked.set(best.name, best.d);
+    if (best) picked.add(best.name);
   }
-  return [...picked.keys()];
+  return [...picked];
 }
 
 /** Singapore's five forecast regions, from a point. */
@@ -89,6 +100,83 @@ function regionFor(lat, lon) {
   if (lon > 103.88) return 'east';
   if (lon < 103.72) return 'west';
   return 'central';
+}
+
+// ── air quality bands (NEA) ──────────────────────────────────────────
+export function psiBand(psi) {
+  if (psi == null) return null;
+  if (psi <= 50) return { label: 'Good', level: 'ok' };
+  if (psi <= 100) return { label: 'Moderate', level: 'warn' };
+  if (psi <= 200) return { label: 'Unhealthy', level: 'severe' };
+  if (psi <= 300) return { label: 'Very unhealthy', level: 'severe' };
+  return { label: 'Hazardous', level: 'severe' };
+}
+
+export function pm25Band(pm) {
+  if (pm == null) return null;
+  if (pm <= 55) return { label: 'Normal', level: 'ok' };
+  if (pm <= 150) return { label: 'Elevated', level: 'warn' };
+  if (pm <= 250) return { label: 'High', level: 'severe' };
+  return { label: 'Very high', level: 'severe' };
+}
+
+export function uvBand(uv) {
+  if (uv == null) return null;
+  if (uv <= 2) return { label: 'Low', level: 'ok' };
+  if (uv <= 5) return { label: 'Moderate', level: 'ok' };
+  if (uv <= 7) return { label: 'High', level: 'warn' };
+  if (uv <= 10) return { label: 'Very high', level: 'warn' };
+  return { label: 'Extreme', level: 'severe' };
+}
+
+/**
+ * Turn the forecast and air-quality readings into a single walk-safety verdict.
+ *
+ * Lightning outranks everything: on an exposed boardwalk or an observation
+ * tower it is the one hazard that kills, so a thundery-shower code anywhere in
+ * the next two hours is surfaced as severe.
+ */
+function assessRisk(nowCode, slots, psi, pm25, uv) {
+  const alerts = [];
+  const soon = slots.filter(s => s.hoursAhead <= 2).map(s => s.code);
+  const later = slots.filter(s => s.hoursAhead > 2).map(s => s.code);
+
+  if (STORM_CODES.has(nowCode) || soon.some(c => STORM_CODES.has(c))) {
+    alerts.push({ level: 'severe', text: 'Lightning risk — thundery showers now or within 2 h', key: 'storm' });
+  } else if (later.some(c => STORM_CODES.has(c))) {
+    alerts.push({ level: 'warn', text: 'Thundery showers forecast later today', key: 'storm-later' });
+  }
+
+  if (HEAVY_CODES.has(nowCode)) {
+    alerts.push({ level: 'severe', text: 'Heavy rain — trails and boardwalks will be slippery', key: 'heavy' });
+  } else if (soon.some(c => HEAVY_CODES.has(c))) {
+    alerts.push({ level: 'warn', text: 'Heavy rain expected within 2 h', key: 'heavy-soon' });
+  } else if (WET_CODES.has(nowCode) || soon.some(c => WET_CODES.has(c))) {
+    alerts.push({ level: 'warn', text: 'Showers about — expect wet boardwalks', key: 'wet' });
+  }
+
+  const pb = psiBand(psi);
+  if (pb && pb.level !== 'ok') {
+    alerts.push({
+      level: pb.level,
+      text: `Haze — PSI ${psi} (${pb.label.toLowerCase()})`,
+      key: 'psi',
+    });
+  }
+  const mb = pm25Band(pm25);
+  if (mb && mb.level === 'severe') {
+    alerts.push({ level: 'severe', text: `PM2.5 ${pm25} µg/m³ (${mb.label.toLowerCase()})`, key: 'pm25' });
+  }
+  const ub = uvBand(uv);
+  if (ub && ub.level !== 'ok') {
+    alerts.push({ level: ub.level, text: `UV index ${uv} (${ub.label.toLowerCase()})`, key: 'uv' });
+  }
+
+  const level = alerts.some(a => a.level === 'severe') ? 'severe'
+    : alerts.length ? 'warn' : 'ok';
+  // most serious first, so the summary bar shows the one that matters
+  alerts.sort((a, b) => (b.level === 'severe') - (a.level === 'severe'));
+  return { level, alerts };
 }
 
 /**
@@ -129,20 +217,22 @@ function writeCache(model) {
 }
 
 /**
- * Build the weather model for the route.
+ * Build the weather + air-quality model for the route.
  *
  * @param {{lat:number, lon:number}} at        where to read live conditions (walker, or route centre)
  * @param {Array<[number,number]>}   samples   points along the route, for area coverage
- * @returns {Promise<object>} model with `now` and `slots` (+2h / +4h / +6h)
  */
 export async function loadWeather(at, samples, { signal } = {}) {
-  const [twoHr, dayFc, temp, humidity, rain, wind] = await Promise.all([
+  const [twoHr, dayFc, temp, humidity, rain, wind, psiData, pmData, uvData] = await Promise.all([
     getJSON('two-hr-forecast', signal).catch(() => null),
     getJSON('twenty-four-hr-forecast', signal).catch(() => null),
     getJSON('air-temperature', signal).catch(() => null),
     getJSON('relative-humidity', signal).catch(() => null),
     getJSON('rainfall', signal).catch(() => null),
     getJSON('wind-speed', signal).catch(() => null),
+    getJSON('psi', signal).catch(() => null),
+    getJSON('pm25', signal).catch(() => null),
+    getJSON('uv', signal).catch(() => null),
   ]);
 
   if (!twoHr && !dayFc && !temp) {
@@ -151,6 +241,7 @@ export async function loadWeather(at, samples, { signal } = {}) {
     throw new Error('No weather data available');
   }
 
+  const region = regionFor(at.lat, at.lon);
   const tempNow = nearestReading(temp, at.lat, at.lon);
   const humidityNow = nearestReading(humidity, at.lat, at.lon);
   const rainNow = nearestReading(rain, at.lat, at.lon);
@@ -169,7 +260,6 @@ export async function loadWeather(at, samples, { signal } = {}) {
 
   // ── future slots from the 24-hour forecast ──
   const record = dayFc?.records?.[0];
-  const region = regionFor(at.lat, at.lon);
   const low = record?.general?.temperature?.low ?? null;
   const high = record?.general?.temperature?.high ?? null;
 
@@ -182,20 +272,63 @@ export async function loadWeather(at, samples, { signal } = {}) {
     const text = (h <= 2 && nowcast?.text) || regional?.text || record?.general?.forecast?.text || '—';
     return {
       label: `+${h}h`,
+      hoursAhead: h,
       at: when.toISOString(),
       code: (h <= 2 && nowcast?.code) || regional?.code || codeFromText(text),
       text,
       tempC: estimateTemp(tempNow?.value ?? null, h, low, high),
       estimated: true,
-      period: period?.timePeriod?.text || record?.general?.validPeriod?.text || '',
     };
   });
+
+  // ── air quality ──
+  const psiReadings = psiData?.items?.[0]?.readings;
+  const pmReadings = pmData?.items?.[0]?.readings;
+  const psi = psiReadings?.psi_twenty_four_hourly?.[region] ?? null;
+  const pm25 = pmReadings?.pm25_one_hourly?.[region] ?? null;
+  const pm25Day = psiReadings?.pm25_twenty_four_hourly?.[region] ?? null;
+  const uvIndex = uvData?.records?.[0]?.index?.[0]?.value ?? null;
+
+  // Any one feed can fail on its own (a transient 5xx answers without CORS
+  // headers, and coverage on the trail is patchy). Rather than blanking the
+  // tile, fall back to the last good reading and say how old it is.
+  const previous = readCache();
+  const air = {
+    psi, pm25, pm25Day, uv: uvIndex,
+    region,
+    updatedAt: psiData?.items?.[0]?.updatedTimestamp || pmData?.items?.[0]?.updatedTimestamp || null,
+  };
+  let airStale = false;
+  if (previous?.air) {
+    for (const key of ['psi', 'pm25', 'pm25Day', 'uv']) {
+      if (air[key] == null && previous.air[key] != null) {
+        air[key] = previous.air[key];
+        airStale = true;
+      }
+    }
+    if (!air.updatedAt) air.updatedAt = previous.air.updatedAt;
+  }
+  air.stale = airStale;
+
+  // NEA publishes no PSI/PM2.5 forecast feed. Comparing the 1-hour PM2.5
+  // against its own 24-hour average is the honest short-range signal: above it
+  // the air is getting worse right now, below it the haze is clearing.
+  if (air.pm25 != null && air.pm25Day != null) {
+    const diff = air.pm25 - air.pm25Day;
+    air.trend = Math.abs(diff) < 4 ? 'steady' : diff > 0 ? 'rising' : 'easing';
+  } else {
+    air.trend = null;
+  }
+
+  const nowCode = nowcast?.code || codeFromText(record?.general?.forecast?.text || '');
+  const risk = assessRisk(nowCode, slots, air.psi, air.pm25, air.uv);
 
   const model = {
     fetchedAt: Date.now(),
     stale: false,
+    risk,
     now: {
-      code: nowcast?.code || codeFromText(record?.general?.forecast?.text || ''),
+      code: nowCode,
       text: nowcast?.text || record?.general?.forecast?.text || 'No nowcast',
       tempC: tempNow?.value ?? null,
       tempStation: tempNow?.station || null,
@@ -207,15 +340,13 @@ export async function loadWeather(at, samples, { signal } = {}) {
       areas: areaNames,
     },
     slots,
+    air,
     day: {
       low, high,
       text: record?.general?.forecast?.text || '',
-      humidity: record?.general?.relativeHumidity || null,
-      wind: record?.general?.wind || null,
       region,
       validPeriod: record?.general?.validPeriod?.text || '',
     },
-    sources: ['NEA / data.gov.sg'],
   };
 
   writeCache(model);
