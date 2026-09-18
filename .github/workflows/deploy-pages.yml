@@ -1,0 +1,56 @@
+name: Deploy to GitHub Pages
+
+# The app lives in a folder whose name contains spaces and an ampersand, so the
+# workflow copies it into a clean _site directory and publishes that as the site
+# root. The published URL is therefore https://<owner>.github.io/<repo>/ .
+
+on:
+  push:
+    branches:
+      - claude/ums-walk-hike-pwa-g1r3cc
+    paths:
+      - 'UMS Walk & Hike 2026/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deployment finish rather than cancelling it half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Assemble the site
+        run: |
+          mkdir -p _site
+          cp -R "UMS Walk & Hike 2026/." _site/
+          # the build inputs are not part of the published site
+          rm -rf _site/tools
+          ls -la _site
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload the site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
