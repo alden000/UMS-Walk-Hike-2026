@@ -115,13 +115,18 @@ export class Route {
 /**
  * Turns a stream of GPS fixes into a progress reading.
  *
+ * `maxOffRoute` is how far from the line still counts as "on route". It is
+ * deliberately generous: under canopy a phone fix can wander a long way, and
+ * the reserve's trails run close enough together that a walker on the right
+ * path can project a couple of hundred metres off it.
+ *
  * A single fix that projects backwards is ignored; progress only gives ground
  * once the retreat persists across fixes or is too large to be noise. That
  * keeps "distance to finish" from flickering under canopy while still tracking
  * a genuine turnaround. Call reset() when a walker restarts the route.
  */
 export class ProgressTracker {
-  constructor(route, { maxOffRoute = 60 } = {}) {
+  constructor(route, { maxOffRoute = 500 } = {}) {
     this.route = route;
     this.maxOffRoute = maxOffRoute;
     this.reset();

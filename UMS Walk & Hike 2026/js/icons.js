@@ -73,7 +73,18 @@ export function checkpointIcon(kind, label) {
          <text x="12" y="16.3" text-anchor="middle" font-size="12.5" font-weight="700"
                font-family="system-ui, sans-serif" fill="${ink}">${label}</text>
        </svg>`;
-  return L.divIcon({ className: 'pin pin-cp', html, iconSize: [23, 23], iconAnchor: [11.5, 11.5], popupAnchor: [0, -12] });
+  // Facility pins are teardrops whose tip marks the spot, so their body sits
+  // *above* it. Checkpoint discs therefore hang just *below* their spot: the
+  // disc's top edge is the true position, and the two never collide even when
+  // a checkpoint and a facility share a location, as they do at the ranger
+  // station and the reservoir park.
+  return L.divIcon({
+    className: 'pin pin-cp',
+    html,
+    iconSize: [23, 23],
+    iconAnchor: [11.5, -2],
+    popupAnchor: [0, -2],
+  });
 }
 
 /**
@@ -96,13 +107,15 @@ export function clusterIcon(counts, total) {
       ${counts[cat] > 1 ? `<i>${counts[cat]}</i>` : ''}
     </span>`).join('');
 
+  // Anchored bottom-centre, like the teardrop pins: the tile sits above its
+  // location, leaving the space below free for a checkpoint disc.
   return L.divIcon({
     className: 'cluster',
     html: `<div class="cl-grid" style="grid-template-columns:repeat(${cols},1fr)">${cells}</div>` +
           (extra > 0 ? `<b class="cl-more">+${extra}</b>` : ''),
     iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2],
+    iconAnchor: [size / 2, size + 2],
+    popupAnchor: [0, -size],
   });
 }
 

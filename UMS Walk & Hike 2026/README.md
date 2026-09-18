@@ -44,13 +44,18 @@ they are open.
 
 **Progress** — from the device GPS, projected onto the route: distance covered,
 distance to the finish, percent complete, distance to the next landmark, moving
-average pace and an ETA. Being more than 60 m off the line raises an "off route"
-warning.
+average pace and an ETA. Being more than **500 m** from the line raises an "off
+route" warning — deliberately generous, because under canopy a phone fix wanders
+and the reserve's trails run close enough together that a walker on the right
+path can project a couple of hundred metres off it.
 
 The progress bar carries checkpoint ticks and your position, and **stays on
 screen when the panel is minimised** — minimising folds away only the four stat
 tiles, and the distance remaining and percentage move up into the status line.
 Minimised, the whole header is about 80 px tall instead of 165 px.
+
+**Both bars start minimised**, which leaves roughly three quarters of a phone
+screen for the map. Expand either one and that choice is remembered.
 
 Because the route is a loop that doubles back on itself, a naive nearest-point
 match would jump between the outbound and return legs. The tracker keeps a hint
@@ -69,7 +74,12 @@ anonymous number. Tapping one lists everything inside with its details; tapping
 a row zooms to that marker and opens it. Past zoom 18 clustering switches off
 and every pin stands on its own. Because all categories share one group,
 overlaps *between* categories collapse too, and each category can still be
-toggled independently.
+toggled independently. All categories, shelters included, are on by default.
+
+Checkpoint discs **hang just below** their position while facility pins are
+teardrops rising *above* theirs, so a checkpoint and a facility sharing a spot —
+as they do at the ranger station and the reservoir park — no longer sit on top
+of one another.
 
 | | Category | Found near the route |
 |---|---|---|
@@ -77,7 +87,7 @@ toggled independently.
 | 🔵 | Toilets | 10 |
 | 🩵 | Drinking water | 4 |
 | 🟣 | Drink / snack machines | 4 |
-| 🟢 | Shelters & huts | 37 (off by default — they are dense) |
+| 🟢 | Shelters & huts | 37 |
 | 🟠 | Car park | Windsor Nature Park, with NParks' lot counts and hours |
 
 Checkpoints are the landmarks listed below.
@@ -100,6 +110,39 @@ version for planning: the forecast opens by default and the panels widen.
 caches map tiles as you view them (capped at 1200). Open the app over the route
 once on wi-fi and it will work in the reserve, where coverage is patchy. Install
 it to the home screen for a full-screen, chrome-free map.
+
+### Checkpoint photos
+
+A checkpoint popup shows a photo when one is available, with the credit its
+licence requires. Three ship with the app, from Wikimedia Commons:
+
+| Checkpoint | Credit | Licence |
+|---|---|---|
+| HSBC TreeTop Walk | Mokkie | CC BY-SA 3.0 |
+| Jelutong Tower | Mokkie | CC BY-SA 3.0 |
+| MacRitchie Reservoir Park | Larrid31 | CC BY-SA 4.0 |
+
+They are 480 px wide, about 320 KB in total, and precached so they work offline.
+Commons has nothing freely licensed for the other landmarks — the Leaning Tree,
+Bukit Kallang, the Syonan Jinja ruins and Venus Drive ruins all came up empty —
+so **the organiser's own event photos are the natural way to fill the rest**, and
+avoid the licensing question entirely.
+
+To add one: drop the image in `photos/` and add an entry to `data/photos.json`
+keyed by the checkpoint's `id`:
+
+```json
+"cp9": { "file": "photos/cp9.jpg", "credit": "UMS Walk & Hike", "licence": "" }
+```
+
+`credit` and `licence` may be empty for your own photos. Add the file to the
+`SHELL` list in `sw.js` if you want it precached. `tools/fetch_photos.py`
+re-downloads the Commons set and rewrites their entries.
+
+The image is given an explicit height in CSS rather than `max-height`: Leaflet
+measures a popup to pan it into view the instant it opens, before the image has
+loaded, and an intrinsic height of zero at that moment puts the popup off the
+top of the screen.
 
 ## Base maps
 
@@ -213,9 +256,9 @@ All official NEA feeds via data.gov.sg — open, keyless, CORS-enabled:
 
 **Collapsing.** The panel folds down to a one-line summary — condition, icon,
 temperature, PSI and PM2.5 — which keeps refreshing on the same 5-minute cycle
-whether it is open or shut. Phones start collapsed (map space is scarce),
-tablets and desktops start open, and your choice is remembered. On a phone the
-open panel is a bottom sheet, so the control stack steps aside while it is up.
+whether it is open or shut. It starts minimised, as the header does, and your
+choice is remembered per device. On a phone the open panel is a bottom sheet, so
+the control stack steps aside while it is up.
 
 **Risk banner.** Shown in both states, because that is the point of it:
 

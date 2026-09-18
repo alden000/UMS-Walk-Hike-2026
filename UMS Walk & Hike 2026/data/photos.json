@@ -1,0 +1,23 @@
+{
+ "note": "Freely-licensed photos from Wikimedia Commons; credit is required by the licence.",
+ "photos": {
+  "cp3": {
+   "file": "photos/cp3.jpg",
+   "credit": "Mokkie",
+   "licence": "CC BY-SA 3.0",
+   "source": "https://commons.wikimedia.org/wiki/File:Tree_Top_Walk_at_MacRitchie,_Singapore_1.jpg"
+  },
+  "cp6": {
+   "file": "photos/cp6.jpg",
+   "credit": "Mokkie",
+   "licence": "CC BY-SA 3.0",
+   "source": "https://commons.wikimedia.org/wiki/File:Jelutong_Tower_1.jpg"
+  },
+  "cp11": {
+   "file": "photos/cp11.jpg",
+   "credit": "Larrid31",
+   "licence": "CC BY-SA 4.0",
+   "source": "https://commons.wikimedia.org/wiki/File:MacRitchie_Reservoir_Park.jpg"
+  }
+ }
+}

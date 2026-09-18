@@ -88,17 +88,20 @@ init().catch(err => {
 });
 
 async function init() {
-  const [routeDoc, poiDoc, cpDoc, trailDoc] = await Promise.all([
+  const [routeDoc, poiDoc, cpDoc, trailDoc, photoDoc] = await Promise.all([
     fetchJSON('data/route.json'),
     fetchJSON('data/pois.json'),
     fetchJSON('data/checkpoints.json'),
     fetchJSON('data/trails.json').catch(() => ({ ways: [] })),
+    // optional: a checkpoint with no photo simply does not show one
+    fetchJSON('data/photos.json').catch(() => ({ photos: {} })),
   ]);
 
   state.route = new Route(routeDoc);
   state.tracker = new ProgressTracker(state.route);
   state.pois = poiDoc.categories || {};
   state.checkpoints = cpDoc.checkpoints || [];
+  state.photos = photoDoc.photos || {};
 
   buildMap(routeDoc, trailDoc);
   buildRoute();
@@ -197,8 +200,8 @@ function applyBounds() {
   // Slack big enough that any marker can be brought into the clear band between
   // the panels — measured from the panels themselves, not guessed.
   const slackPx = Math.max(
-    160,
-    $('#hud').offsetHeight + $('#wx-toggle').offsetHeight + 60,
+    300,                                    // enough for a tall popup with a photo
+    $('#hud').offsetHeight + $('#wx-toggle').offsetHeight + 140,
   );
   const origin = map.containerPointToLatLng([0, 0]);
   const padded = map.containerPointToLatLng([-slackPx, -slackPx]);
@@ -275,10 +278,12 @@ function buildCheckpoints() {
     const remaining = state.route.total - cp.along;
     L.marker([cp.lat, cp.lon], { icon: checkpointIcon(kind, label), zIndexOffset: 600 })
       .bindPopup(
+        photoHtml(cp.id) +
         `<div class="pop-t">${label ? `${label}. ` : ''}${escapeHtml(cp.name)}</div>` +
         (cp.note ? `<div class="pop-d">${escapeHtml(cp.note)}</div>` : '') +
         `<div class="pop-m">km ${(cp.along / 1000).toFixed(2)} · ${formatDistance(remaining)} to finish` +
-        (cp.offset > 40 ? ` · ${cp.offset} m off the path` : '') + '</div>')
+        (cp.offset > 40 ? ` · ${cp.offset} m off the path` : '') + '</div>',
+        { maxWidth: state.photos[cp.id] ? 280 : 300 })
       .addTo(group);
   });
   state.layers.checkpoints = group.addTo(state.map);
@@ -304,9 +309,24 @@ function buildCheckpoints() {
  * anonymous count. Categories stay individually toggleable by adding and
  * removing their markers from the group.
  */
+/**
+ * Photo for a checkpoint popup, with the credit its licence requires.
+ *
+ * Loaded lazily and only when the popup opens, so the images cost nothing until
+ * someone actually taps a checkpoint.
+ */
+function photoHtml(id) {
+  const photo = state.photos?.[id];
+  if (!photo) return '';
+  return `<figure class="pop-photo">
+    <img src="${escapeHtml(photo.file)}" alt="" decoding="async">
+    <figcaption>${escapeHtml(photo.credit)}${photo.licence ? ` · ${escapeHtml(photo.licence)}` : ''}</figcaption>
+  </figure>`;
+}
+
 function buildPois() {
   const cluster = L.markerClusterGroup({
-    maxClusterRadius: 38,          // px: only pins that genuinely overlap
+    maxClusterRadius: 46,          // px: only pins that genuinely overlap
     spiderfyOnMaxZoom: true,
     showCoverageOnHover: false,
     zoomToBoundsOnClick: false,    // handled below, so a tap always shows the list
@@ -337,8 +357,7 @@ function buildPois() {
         { maxWidth: p.note ? 270 : 300 }));
 
     state.markersByCategory[cat] = markers;
-    // shelters are numerous; leave them off until asked for
-    if (cat !== 'shelter') cluster.addLayers(markers);
+    cluster.addLayers(markers);
   }
 
   // A tap on a cluster lists what is inside, which is more use than zooming and
@@ -394,7 +413,7 @@ function buildLayerUI() {
   $('#overlays').innerHTML = Object.entries(CATEGORY).map(([cat, meta]) => {
     const n = (state.pois[cat] || []).length;
     return `<label>
-      <input type="checkbox" data-layer="${cat}" ${cat === 'shelter' ? '' : 'checked'}>
+      <input type="checkbox" data-layer="${cat}" checked>
       ${legendIcon(cat)}
       <span class="n">${meta.plural}</span><span class="c">${n}</span>
     </label>`;
@@ -522,9 +541,12 @@ function wireControls() {
   // bar and any risk banner stay visible and keep refreshing.
   const wxToggle = $('#wx-toggle');
   wxToggle.addEventListener('click', () => setWeatherOpen(!weatherOpen()));
-  // phones default to collapsed (map space is scarce); larger screens open
-  const saved = localStorage.getItem('ums-wx-open');
-  setWeatherOpen(saved === null ? window.innerWidth > 720 : saved === '1', true);
+  // both bars start minimised so the map gets the screen; the choice is then
+  // remembered per device
+  const savedWx = localStorage.getItem('ums-wx-open');
+  setWeatherOpen(savedWx === '1', true);
+  const savedHud = localStorage.getItem('ums-hud-open');
+  if (savedHud !== '1') setHudOpen(false, true);
 
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) refreshWeather(false);
@@ -536,12 +558,16 @@ function hudOpen() {
 }
 
 /** Fold the stat tiles away; the progress bar and status line always stay. */
-function setHudOpen(open) {
+function setHudOpen(open, initial = false) {
   $('#hud-toggle').setAttribute('aria-expanded', String(open));
   $('#hud-body').hidden = !open;
   // minimised, the status line carries the numbers, so re-render it now
   renderProgress(state.lastProgress ?? null, state.lastAccuracy);
   state.measurePanels?.();
+  // an automatic fold for a popup must not overwrite the walker's own choice
+  if (!initial && !state.hudAutoMinimised) {
+    localStorage.setItem('ums-hud-open', open ? '1' : '0');
+  }
 }
 
 function centreOnMe() {
