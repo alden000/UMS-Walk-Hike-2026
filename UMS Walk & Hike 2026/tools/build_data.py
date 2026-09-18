@@ -326,7 +326,11 @@ def build_pois(route, route_index):
     return out
 
 
-# Event checkpoints: the landmarks and attractions the route actually passes,
+# Event checkpoints: the landmarks and attractions the route actually passes.
+# "Venus Drive Ruins" was dropped: OpenStreetMap tags three points along Venus
+# Drive as an unnamed "Ruins" attraction, but nothing corroborates what they are,
+# so it was not worth sending walkers to look for it.
+#
 # picked from the OpenStreetMap extract (see tools/landmarks note in README).
 # Coordinates are the landmark itself; `along` and `offset` are derived from the
 # route, so a checkpoint slightly off the path still reports honestly.
@@ -334,29 +338,27 @@ def build_pois(route, route_index):
 # Start and finish are pinned to the KML's own first/last point, which is the
 # Windsor Nature Park carpark.
 LANDMARKS = [
-    ("cp1", "Venus Drive Ruins", "Old kampong ruins beside the Squirrel Trail boardwalk",
-     1.360788, 103.822113),
-    ("cp2", "MacRitchie Ranger Station", "Toilets, drinking water and an AED",
+    ("cp1", "MacRitchie Ranger Station", "Toilets, drinking water and an AED",
      1.357037, 103.812658),
-    ("cp3", "HSBC TreeTop Walk", "250 m suspension bridge between Bukit Peirce and Bukit Kallang",
+    ("cp2", "HSBC TreeTop Walk", "250 m suspension bridge between Bukit Peirce and Bukit Kallang",
      1.361047, 103.811396),
-    ("cp4", "Bukit Kallang", "High point of the route at the TreeTop Walk's far end",
+    ("cp3", "Bukit Kallang", "High point of the route at the TreeTop Walk's far end",
      1.361352, 103.809444),
-    ("cp5", "Petaling Boardwalk", "Boardwalk down through Petaling Trail to Petaling Hut",
+    ("cp4", "Petaling Boardwalk", "Boardwalk down through Petaling Trail to Petaling Hut",
      1.359114, 103.808382),
-    ("cp6", "Jelutong Tower", "Seven-storey observation tower over the forest canopy",
+    ("cp5", "Jelutong Tower", "Seven-storey observation tower over the forest canopy",
      1.351378, 103.806397),
-    ("cp7", "Syonan Jinja Ruins", "Wartime Shinto shrine remains - a short detour off the path",
+    ("cp6", "Syonan Jinja Ruins", "Wartime Shinto shrine remains - a short detour off the path",
      1.348265, 103.813815),
-    ("cp8", "Jering Hut", "Shelter on the Jering Trail, with an AED",
+    ("cp7", "Jering Hut", "Shelter on the Jering Trail, with an AED",
      1.340957, 103.820021),
-    ("cp9", "The Leaning Tree of MacRitchie", "Landmark tree on the Chemperai Trail",
+    ("cp8", "The Leaning Tree of MacRitchie", "Landmark tree on the Chemperai Trail",
      1.343695, 103.826444),
-    ("cp10", "Lim Bo Seng Memorial", "War memorial and grave above the reservoir shore",
+    ("cp9", "Lim Bo Seng Memorial", "War memorial and grave above the reservoir shore",
      1.341900, 103.830987),
-    ("cp11", "MacRitchie Reservoir Park", "Main park hub - cafe, toilets, water point and AED",
+    ("cp10", "MacRitchie Reservoir Park", "Main park hub - cafe, toilets, water point and AED",
      1.342473, 103.834908),
-    ("cp12", "Petai Trail Boardwalk", "Last boardwalk stretch before the return to Windsor",
+    ("cp11", "Petai Trail Boardwalk", "Last boardwalk stretch before the return to Windsor",
      1.350430, 103.831233),
 ]
 

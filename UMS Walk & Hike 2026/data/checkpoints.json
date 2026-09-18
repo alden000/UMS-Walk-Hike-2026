@@ -13,15 +13,6 @@
   },
   {
    "id": "cp1",
-   "name": "Venus Drive Ruins",
-   "note": "Old kampong ruins beside the Squirrel Trail boardwalk",
-   "along": 668,
-   "offset": 0,
-   "lat": 1.360788,
-   "lon": 103.822113
-  },
-  {
-   "id": "cp2",
    "name": "MacRitchie Ranger Station",
    "note": "Toilets, drinking water and an AED",
    "along": 2433,
@@ -30,7 +21,7 @@
    "lon": 103.812658
   },
   {
-   "id": "cp3",
+   "id": "cp2",
    "name": "HSBC TreeTop Walk",
    "note": "250 m suspension bridge between Bukit Peirce and Bukit Kallang",
    "along": 3084,
@@ -39,7 +30,7 @@
    "lon": 103.811396
   },
   {
-   "id": "cp4",
+   "id": "cp3",
    "name": "Bukit Kallang",
    "note": "High point of the route at the TreeTop Walk's far end",
    "along": 3313,
@@ -48,7 +39,7 @@
    "lon": 103.809444
   },
   {
-   "id": "cp5",
+   "id": "cp4",
    "name": "Petaling Boardwalk",
    "note": "Boardwalk down through Petaling Trail to Petaling Hut",
    "along": 3597,
@@ -57,7 +48,7 @@
    "lon": 103.808382
   },
   {
-   "id": "cp6",
+   "id": "cp5",
    "name": "Jelutong Tower",
    "note": "Seven-storey observation tower over the forest canopy",
    "along": 4679,
@@ -66,7 +57,7 @@
    "lon": 103.806397
   },
   {
-   "id": "cp7",
+   "id": "cp6",
    "name": "Syonan Jinja Ruins",
    "note": "Wartime Shinto shrine remains - a short detour off the path",
    "along": 5548,
@@ -75,7 +66,7 @@
    "lon": 103.813815
   },
   {
-   "id": "cp8",
+   "id": "cp7",
    "name": "Jering Hut",
    "note": "Shelter on the Jering Trail, with an AED",
    "along": 7335,
@@ -84,7 +75,7 @@
    "lon": 103.820021
   },
   {
-   "id": "cp9",
+   "id": "cp8",
    "name": "The Leaning Tree of MacRitchie",
    "note": "Landmark tree on the Chemperai Trail",
    "along": 8474,
@@ -93,7 +84,7 @@
    "lon": 103.826444
   },
   {
-   "id": "cp10",
+   "id": "cp9",
    "name": "Lim Bo Seng Memorial",
    "note": "War memorial and grave above the reservoir shore",
    "along": 9394,
@@ -102,7 +93,7 @@
    "lon": 103.830987
   },
   {
-   "id": "cp11",
+   "id": "cp10",
    "name": "MacRitchie Reservoir Park",
    "note": "Main park hub - cafe, toilets, water point and AED",
    "along": 9988,
@@ -111,7 +102,7 @@
    "lon": 103.834908
   },
   {
-   "id": "cp12",
+   "id": "cp11",
    "name": "Petai Trail Boardwalk",
    "note": "Last boardwalk stretch before the return to Windsor",
    "along": 11382,

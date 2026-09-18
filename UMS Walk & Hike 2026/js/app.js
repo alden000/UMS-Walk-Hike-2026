@@ -312,7 +312,8 @@ function buildCheckpoints() {
  * removing their markers from the group.
  */
 /**
- * Photo for a checkpoint popup, with the credit its licence requires.
+ * Photo for a popup, keyed by checkpoint or facility id, with the credit the
+ * licence requires (omitted when `credit` is empty, as it is for our own).
  *
  * Loaded lazily and only when the popup opens, so the images cost nothing until
  * someone actually taps a checkpoint.
@@ -320,9 +321,11 @@ function buildCheckpoints() {
 function photoHtml(id) {
   const photo = state.photos?.[id];
   if (!photo) return '';
+  // No credit, no caption — an empty one still paints its gradient band.
+  const caption = [photo.credit, photo.licence].filter(Boolean).join(' · ');
   return `<figure class="pop-photo">
     <img src="${escapeHtml(photo.file)}" alt="" decoding="async">
-    <figcaption>${escapeHtml(photo.credit)}${photo.licence ? ` · ${escapeHtml(photo.licence)}` : ''}</figcaption>
+    ${caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : ''}
   </figure>`;
 }
 
@@ -352,11 +355,12 @@ function buildPois() {
         category: cat,
         zIndexOffset: cat === 'aed' ? 500 : 0,
       }).bindPopup(
+        photoHtml(p.id) +
         `<div class="pop-t">${escapeHtml(p.name === meta.label ? meta.label : p.name)}</div>` +
         (p.detail ? `<div class="pop-d">${escapeHtml(p.detail)}</div>` : '') +
         (p.note ? `<div class="pop-n">${escapeHtml(p.note)}</div>` : '') +
         `<div class="pop-m">km ${(p.along / 1000).toFixed(2)} on route · ${p.offset} m off the path</div>`,
-        { maxWidth: p.note ? 270 : 300 }));
+        { maxWidth: (p.note || state.photos[p.id]) ? 280 : 300 }));
 
     state.markersByCategory[cat] = markers;
     cluster.addLayers(markers);

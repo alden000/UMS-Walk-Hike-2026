@@ -119,48 +119,47 @@ it to the home screen for a full-screen, chrome-free map.
 
 ### Checkpoint photos
 
-A checkpoint popup shows a photo when one is available. Seven of the fourteen
-have one, all freely licensed — from Wikimedia Commons and from Flickr's
-Creative Commons pool (found via [Openverse](https://openverse.org)):
+A popup shows a photo when one is available — eight of the thirteen checkpoints
+have one, and so does the car park marker.
 
-| Checkpoint | Shows | Credit | Licence |
-|---|---|---|---|
-| 2 · MacRitchie Ranger Station | the ranger station building | pslim | CC BY-NC-SA 2.0 |
-| 3 · HSBC TreeTop Walk | the suspension bridge | Mokkie | CC BY-SA 3.0 |
-| 4 · Bukit Kallang | forest floor from the TreeTop Walk | Eustaquio Santimano | CC BY-NC-SA 2.0 |
-| 6 · Jelutong Tower | the tower | Mokkie | CC BY-SA 3.0 |
-| 7 · Syonan Jinja Ruins | the overgrown stone remains | sunriseOdyssey | CC BY-SA 2.0 |
-| 11 · MacRitchie Reservoir Park | the park | Larrid31 | CC BY-SA 4.0 |
-| 12 · Petai Trail Boardwalk | a MacRitchie boardwalk* | Jnzl's Photos | CC BY 2.0 |
+| # | Checkpoint | Shows | Credit | Licence |
+|---|---|---|---|---|
+| — | Start / Finish | the car park, looking in from the entrance | organiser | — |
+| 1 | MacRitchie Ranger Station | the ranger station building | pslim | CC BY-NC-SA 2.0 |
+| 2 | HSBC TreeTop Walk | the suspension bridge | Mokkie | CC BY-SA 3.0 |
+| 3 | Bukit Kallang | forest floor from the TreeTop Walk | Eustaquio Santimano | CC BY-NC-SA 2.0 |
+| 5 | Jelutong Tower | the tower | Mokkie | CC BY-SA 3.0 |
+| 6 | Syonan Jinja Ruins | the overgrown stone remains | sunriseOdyssey | CC BY-SA 2.0 |
+| 10 | MacRitchie Reservoir Park | the park | Larrid31 | CC BY-SA 4.0 |
+| 11 | Petai Trail Boardwalk | a MacRitchie boardwalk* | Jnzl's Photos | CC BY 2.0 |
 
 \* representative of the boardwalk stretch rather than that exact structure.
 
-About 590 KB in total at 480 px wide, precached so they work offline.
+About 640 KB in total at 480 px wide, precached so they work offline. **A photo
+with an empty `credit` shows no caption at all** — that is how the organiser's own
+car park photo displays, and how any others you add will.
 
-**Every candidate was opened and compared against the landmark before use**,
-which turned out to matter: a promising "Lim Bo Seng Memorial" result was the
-Esplanade Park monument by the waterfront, not the grave above the reservoir —
+**Every sourced candidate was opened and compared against the landmark before
+use**, which turned out to matter: a promising "Lim Bo Seng Memorial" result was
+the Esplanade Park monument by the waterfront, not the grave above the reservoir —
 the wrong side of the island. Others were a selfie, a patch of undergrowth tagged
 "Windsor Nature Park", and a group photo of identifiable faces. Those were
-rejected, so **the start/finish, Venus Drive Ruins, Petaling Boardwalk, Jering
-Hut, the Leaning Tree and the Lim Bo Seng Memorial have no photo** rather than a
-misleading one. Google Maps photos are not an option: they are copyrighted by
-Google or by the people who uploaded them, and the Maps terms forbid copying them
-out.
+rejected, so **Petaling Boardwalk, Jering Hut, the Leaning Tree and the Lim Bo
+Seng Memorial have no photo** rather than a misleading one. Google Maps photos are
+not an option: they are copyrighted by Google or by the people who uploaded them,
+and the Maps terms forbid copying them out.
 
-The organiser's own event photos are the natural way to fill the remaining six.
-Drop the image in `photos/` and add an entry to `data/photos.json` keyed by the
-checkpoint's `id`:
+To add one, drop the image in `photos/` and add an entry to `data/photos.json`
+keyed by the checkpoint's `id` — **the ids match the numbers drawn on the map**,
+so checkpoint 8 is `cp8`:
 
 ```json
-"cp9": { "file": "photos/cp9.jpg", "credit": "", "licence": "" }
+"cp8": { "file": "photos/cp8.jpg", "credit": "", "licence": "" }
 ```
 
-An empty `credit` hides the caption, so your own photos display clean — and the
-same works on any of the seven above if you would rather they showed no caption.
-Add the file to the `SHELL` list in `sw.js` to have it precached.
-`tools/fetch_photos.py` re-downloads the Commons ones and records where the
-Flickr ones came from.
+Add the file to the `SHELL` list in `sw.js` to have it precached, and resize it
+to about 480 px wide first. `tools/fetch_photos.py` re-downloads the Wikimedia
+Commons ones and records where the Flickr ones came from.
 
 The image is given an explicit height in CSS rather than `max-height`: Leaflet
 measures a popup to pan it into view the instant it opens, before the image has
@@ -224,7 +223,7 @@ Running `tools/build_data.py` recomputes `offset` and `along` for you.
 ### Checkpoints — landmarks along the route
 
 **The supplied KML contains no checkpoint placemarks — only the track.** The
-twelve checkpoints in `data/checkpoints.json` are therefore the landmarks and
+eleven checkpoints in `data/checkpoints.json` are therefore the landmarks and
 attractions the route actually passes, picked from the OpenStreetMap extract and
 ordered by distance. Start and finish are pinned to the KML's own first and last
 point, the **Windsor Nature Park carpark**.
@@ -232,7 +231,6 @@ point, the **Windsor Nature Park carpark**.
 | km | Landmark | |
 |---:|---|---|
 | 0.00 | **Start / Finish** — Windsor Nature Park Carpark | |
-| 0.67 | Venus Drive Ruins | old kampong ruins by the Squirrel Trail boardwalk |
 | 2.43 | MacRitchie Ranger Station | toilets, drinking water, AED |
 | 3.08 | **HSBC TreeTop Walk** | 250 m suspension bridge |
 | 3.31 | Bukit Kallang | high point, at the bridge's far end |
@@ -254,9 +252,14 @@ publishes a different list, replace the file — it is plain JSON and the only
 thing you need to edit:
 
 ```json
-{ "id": "cp1", "name": "Venus Drive Ruins", "note": "Old kampong ruins",
-  "along": 668, "offset": 0, "lat": 1.360788, "lon": 103.822113 }
+{ "id": "cp1", "name": "MacRitchie Ranger Station", "note": "Toilets, drinking water and an AED",
+  "along": 2433, "offset": 5, "lat": 1.357037, "lon": 103.812658 }
 ```
+
+Checkpoint ids match the numbers drawn on the map, so `cp1` is the disc marked
+**1**. An earlier "Venus Drive Ruins" entry was dropped: OpenStreetMap tags three
+points along Venus Drive as an unnamed "Ruins" attraction, but nothing
+corroborates what they are, so it was not worth sending walkers to look for it.
 
 `along` is metres from the start and drives the "distance to next checkpoint"
 readout and the ticks on the progress bar; `build_data.py` recomputes `along`
