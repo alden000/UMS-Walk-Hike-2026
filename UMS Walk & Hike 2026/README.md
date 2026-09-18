@@ -346,6 +346,44 @@ Every later push that touches this folder redeploys automatically.
 > you are on Enterprise with private Pages, **a published Pages site is public**
 > even when the repository is private.
 
+## Hosting it on a LAN
+
+The event copy is the HTTPS one at
+**https://alden000.github.io/UMS-Walk-Hike-2026/** — use that for the walk
+itself. A LAN copy is a fine backup for looking at the map, with one important
+limit.
+
+**GPS and offline caching need a secure context.** Browsers grant geolocation and
+register service workers only on HTTPS, with `localhost` as the sole exemption —
+a LAN address such as `http://192.168.1.20:8080` does **not** qualify. Served
+that way the app still shows the map, the route, every marker and the live NEA
+weather, but:
+
+| | over `http://<lan-ip>` |
+|---|---|
+| Map, route, markers, checkpoint photos | ✅ work |
+| Weather and air quality | ✅ work (needs internet) |
+| Live progress tracking | ❌ GPS refused: *"Only secure origins are allowed"* |
+| Offline caching | ❌ the service worker API is not even exposed |
+
+The app detects this and says so directly — *"Opened over plain HTTP — GPS and
+offline need HTTPS"* — rather than reporting it as a permission problem, which is
+what the browser's own error looks like and would send people hunting through
+phone settings for nothing.
+
+To serve the LAN copy:
+
+```bash
+cd "UMS Walk & Hike 2026"
+python3 -m http.server 8080 --bind 0.0.0.0
+# then http://<your-lan-ip>:8080 from any device on the network
+```
+
+If you later want the LAN copy to do tracking and offline too, it needs a
+certificate — `mkcert` for a local CA, Tailscale for automatic real certs, or a
+DNS-01 Let's Encrypt cert for a hostname pointed at the LAN IP. Ask and I'll add
+the setup.
+
 ## Rebuilding the data
 
 ```bash

@@ -610,7 +610,23 @@ function setFollowing(on, silent = false) {
 }
 
 // ── location & progress ──────────────────────────────────────────────
+// Where the app is served from over HTTPS, for the insecure-origin notice below
+const SECURE_HOME = 'https://alden000.github.io/UMS-Walk-Hike-2026/';
+
 function startLocating() {
+  // Browsers hand out GPS only on a secure context. localhost is exempt, a LAN
+  // address over plain HTTP is not, and the failure that comes back looks
+  // exactly like a permission denial — which would send someone hunting through
+  // phone settings for a problem that is not there. Say what is actually wrong.
+  if (!window.isSecureContext) {
+    const status = $('#hud-status');
+    status.textContent = 'Opened over plain HTTP — GPS and offline need HTTPS';
+    status.className = 'warn';
+    status.title = `Tracking and offline caching only work on a secure origin. Open ${SECURE_HOME} instead.`;
+    toast('No GPS over plain HTTP — open the https:// address for tracking');
+    return;
+  }
+
   if (!('geolocation' in navigator)) {
     $('#hud-status').textContent = 'This device has no location support';
     return;
