@@ -8,6 +8,8 @@ const $ = sel => document.querySelector(sel);
 
 // Panning and zooming are confined to the route plus this much breathing room.
 const CORRIDOR_M = 1000;
+// how many zoom levels beyond the corridor fit the user may zoom out
+const ZOOM_OUT_SLACK = 1;
 const FOLLOW_INTERVAL_MS = 1000;
 const WEATHER_REFRESH_MS = 5 * 60 * 1000;
 
@@ -24,6 +26,8 @@ const state = {
   accuracyRing: null,
   doneLine: null,
   lastFix: null,
+  lastProgress: null,
+  lastAccuracy: null,
   following: false,
   followTimer: null,
   watchId: null,
@@ -165,10 +169,17 @@ function buildMap(routeDoc, trailDoc) {
   setBasemap(localStorage.getItem('ums-basemap') || 'onemap');
 }
 
-/** Keep the whole allowed area no smaller than the viewport, so the wall holds. */
+/**
+ * Lower bound on zoom, derived from the corridor.
+ *
+ * `getBoundsZoom(..., true)` is the zoom at which the viewport still fits inside
+ * the corridor. We allow one level further out than that, so the whole route and
+ * its surroundings can be taken in at a glance; panning stays fenced by
+ * `maxBounds` either way.
+ */
 function applyMinZoom() {
-  const z = state.map.getBoundsZoom(state.limitBounds, true);
-  state.map.setMinZoom(Math.max(11, Math.floor(z * 4) / 4));
+  const fit = state.map.getBoundsZoom(state.limitBounds, true);
+  state.map.setMinZoom(Math.max(10, Math.floor(fit * 4) / 4 - ZOOM_OUT_SLACK));
 }
 
 function setBasemap(id) {
@@ -329,7 +340,11 @@ function wireControls() {
   hudToggle.addEventListener('click', () => {
     const open = hudToggle.getAttribute('aria-expanded') === 'true';
     hudToggle.setAttribute('aria-expanded', String(!open));
+    // only the stat tiles and the footnote fold away; the progress bar stays
     $('#hud-body').hidden = open;
+    // the status line carries the numbers while minimised, so re-render it now
+    renderProgress(state.lastProgress ?? null, state.lastAccuracy);
+    state.measurePanels?.();
   });
 
   // The control stack lives in the band between the HUD and the weather panel.
@@ -439,6 +454,8 @@ function onFix(pos) {
   }
 
   const progress = state.tracker.update(lat, lon, pos.timestamp || Date.now());
+  state.lastProgress = progress;
+  state.lastAccuracy = accuracy;
   renderProgress(progress, accuracy);
 }
 
@@ -492,14 +509,18 @@ function renderProgress(p, accuracy) {
 
   state.doneLine.setLatLngs(walkedPath(p.along));
 
+  const minimised = $('#hud-body').hidden;
   if (!p.onRoute) {
     status.textContent = `Off route — ${formatDistance(p.offset)} from the path`;
     status.className = 'warn';
   } else {
     const parts = [];
-    if (p.eta) parts.push(`${formatDuration(p.eta)} to finish at this pace`);
-    if (p.speed) parts.push(`${(p.speed * 3.6).toFixed(1)} km/h avg`);
-    if (!parts.length && accuracy) parts.push(`GPS accurate to ${Math.round(accuracy)} m`);
+    // minimised, the status line is the only place the numbers can live
+    if (minimised) parts.push(`${formatDistance(p.remaining)} to finish`,
+      `${Math.round(p.fraction * 100)}%`);
+    if (p.eta) parts.push(`${formatDuration(p.eta)} at this pace`);
+    else if (p.speed) parts.push(`${(p.speed * 3.6).toFixed(1)} km/h avg`);
+    else if (!minimised && accuracy) parts.push(`GPS accurate to ${Math.round(accuracy)} m`);
     status.textContent = parts.join(' · ') || 'On route';
     status.className = 'live';
   }

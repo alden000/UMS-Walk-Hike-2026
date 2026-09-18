@@ -135,6 +135,9 @@ h2:first-of-type { margin-top: 0; }
 #hud-toggle svg { width: 16px; height: 16px; transition: transform .18s; }
 #hud-toggle[aria-expanded="false"] svg { transform: rotate(180deg); }
 #hud-body[hidden] { display: none; }
+/* minimised: the bar carries straight on under the status line */
+#hud-body[hidden] + .bar { margin-top: 10px; }
+#hud-body[hidden] ~ #hud-note { display: none; }
 
 .stats {
   display: grid;
@@ -168,7 +171,7 @@ h2:first-of-type { margin-top: 0; }
   text-overflow: ellipsis;
 }
 
-/* progress bar with checkpoint ticks */
+/* progress bar with checkpoint ticks — visible in both HUD states */
 .bar {
   position: relative;
   height: 8px;
@@ -281,6 +284,13 @@ h2:first-of-type { margin-top: 0; }
 .checks .ico { width: 20px; height: 20px; flex: none; }
 .checks .n { flex: 1; }
 .checks .c { font-size: 11px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+
+.legend { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.legend li { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--ink-dim); }
+.sw-line { flex: none; width: 24px; height: 4px; border-radius: 99px; }
+.sw-line.done { background: var(--accent); }
+.sw-line.todo { background: var(--route); }
+.sw-line.trail { background: #a4744a; height: 2px; }
 
 /* ── weather & air quality (bottom) ───────────────────────────── */
 #weather {

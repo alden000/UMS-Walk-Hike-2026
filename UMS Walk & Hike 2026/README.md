@@ -20,14 +20,28 @@ tracking — open `index.html` from any static web server.
 
 ## What it does
 
-**Map** — full-screen canvas. Route drawn in orange, the part already walked
-redrawn in green behind your position. Kilometre pips every 1 km. Panning and
-zooming are fenced to the route plus a 1 km margin, so the map cannot be lost.
+**Map** — full-screen canvas.
+
+The route is drawn in **two colours: green is the ground you have already
+covered, orange is what is left.** The split sits at your current position, so
+the line itself is the progress bar. Before the first GPS fix the whole route is
+orange. A legend under *Line colours* in the layers drawer spells this out, and
+the brown hairlines on the Trail map layer are the other footpaths in the area.
+
+Kilometre pips every 1 km. Panning is fenced to the route plus a 1 km margin so
+the map cannot be lost, and zoom stops one level below the zoom that fits that
+corridor — far enough out to take in the whole route and its surroundings, not
+so far that the route becomes a squiggle.
 
 **Progress** — from the device GPS, projected onto the route: distance covered,
-distance to the finish, percent complete, distance to the next checkpoint, moving
-average pace and an ETA. The progress bar carries checkpoint ticks and your
-position. Being more than 60 m off the line raises an "off route" warning.
+distance to the finish, percent complete, distance to the next landmark, moving
+average pace and an ETA. Being more than 60 m off the line raises an "off route"
+warning.
+
+The progress bar carries checkpoint ticks and your position, and **stays on
+screen when the panel is minimised** — minimising folds away only the four stat
+tiles, and the distance remaining and percentage move up into the status line.
+Minimised, the whole header is about 80 px tall instead of 165 px.
 
 Because the route is a loop that doubles back on itself, a naive nearest-point
 match would jump between the outbound and return legs. The tracker keeps a hint
@@ -288,6 +302,31 @@ tools/                  data build scripts + source KML
 - [ ] Deploy over HTTPS and open it once along the route to warm the tile cache.
 - [ ] Spot-check toilets and water points — OSM survey dates on some entries go
       back to 2020.
+
+## Car park availability at Windsor Nature Park — not available
+
+There is **no real-time lot-availability feed for the Windsor Nature Park car
+park**, and none for any NParks nature-park car park. Checked:
+
+| Source | Result |
+|---|---|
+| `api.data.gov.sg/v1/transport/carpark-availability` | Works (2,016 car parks, updated each minute) but **HDB car parks only**. Cross-checked every entry against the HDB Car Park Information dataset, converting its SVY21 coordinates to WGS84: the nearest is **BE18, Bright Hill Drive, 449 m away**. Nothing at the nature park. |
+| `api-open.data.gov.sg/v2/real-time/api/carpark-availability` | 403, *Missing Authentication Token* — not an open v2 endpoint. |
+| LTA DataMall `CarParkAvailabilityv2` | Needs a registered AccountKey, which this build does not have. It covers HDB, URA and LTA car parks; NParks nature-park car parks are generally not among them, but this could not be verified either way. |
+
+If you want something useful on the day anyway, the nearest HDB car parks **are**
+in the free feed and were returning live counts when this was checked:
+
+| Car park | Distance | Live at time of check |
+|---|---:|---|
+| BE18 — Blk 441-455 Sin Ming Ave / Bright Hill Dr | 449 m | 209 / 560 free |
+| BE44 — Blk 448A Bright Hill Drive | 527 m | 296 / 424 free |
+| BE3 — Blk 401-408 Sin Ming Avenue | 839 m | 117 / 320 free |
+
+Those would work as an overflow-parking panel — if the nature park car park is
+full, walkers divert to Sin Ming and walk 450-550 m in. Not built, because it
+answers a different question from the one asked; say the word and it is a small
+addition.
 
 ## Attribution
 

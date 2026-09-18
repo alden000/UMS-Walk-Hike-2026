@@ -38,15 +38,16 @@
       <div class="stat"><span class="stat-v" id="st-pct">–</span><span class="stat-l">complete</span></div>
       <div class="stat"><span class="stat-v" id="st-next">–</span><span class="stat-l" id="st-next-l">next CP</span></div>
     </div>
-
-    <div class="bar" id="bar" aria-hidden="true">
-      <div class="bar-fill" id="bar-fill"></div>
-      <div class="bar-ticks" id="bar-ticks"></div>
-      <div class="bar-me" id="bar-me"></div>
-    </div>
-
-    <p class="fineprint" id="hud-note">Route 13.25 km loop · Windsor Nature Park</p>
   </div>
+
+  <!-- outside #hud-body: progress stays on screen when the panel is minimised -->
+  <div class="bar" id="bar" aria-hidden="true">
+    <div class="bar-fill" id="bar-fill"></div>
+    <div class="bar-ticks" id="bar-ticks"></div>
+    <div class="bar-me" id="bar-me"></div>
+  </div>
+
+  <p class="fineprint" id="hud-note">Route 13.25 km loop · Windsor Nature Park</p>
 </header>
 
 <!-- ── right: map controls ───────────────────────────────────────── -->
@@ -82,6 +83,13 @@
 
   <h2>Route</h2>
   <div class="checks" id="route-overlays"></div>
+
+  <h2>Line colours</h2>
+  <ul class="legend">
+    <li><span class="sw-line done"></span>Walked so far</li>
+    <li><span class="sw-line todo"></span>Still to walk</li>
+    <li><span class="sw-line trail"></span>Other trails &amp; paths</li>
+  </ul>
 </section>
 
 <!-- ── bottom: weather & air quality ─────────────────────────────── -->
