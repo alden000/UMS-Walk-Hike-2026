@@ -123,6 +123,40 @@ follows the usual convention but could not be checked here — no compass exists
 in a headless browser — so it is worth a glance on the day if anyone walks with
 the phone sideways.
 
+**Emergency card** — the red **+** button. One tap for the moment nobody wants:
+call buttons (995 for SCDF, the NParks helpline, and the event marshal once a
+number is put in `CALLS` at the top of `js/app.js` — the button is hidden while
+it is blank); where you are, as coordinates with the fix's accuracy and age, the
+km mark on the route, and the distance to the nearest landmark, with **Copy** and
+**Share** so it can go straight into a message with a Google Maps link; and the
+nearest AED, shelter and toilet by straight-line distance from the last fix,
+each a tap away on the map. The AED data was always on the map; nobody should
+be hunting through markers with an incident in front of them.
+
+**Surviving a reload** — sooner or later in a four-hour walk the phone kills the
+tab. Distance along, start time and moving time are saved to the device every
+five seconds while on route and restored on the next open, so the HUD shows the
+saved numbers before the first fix rather than zeros, and the ETA carries on.
+It matters most on this loop: the finish is the start, so a fresh open near the
+end would read as the start line — the restored position settles that. A saved
+walk older than eight hours is treated as a previous day's and discarded, and
+**Reset progress** in the layers drawer starts over deliberately.
+
+**Screen stays on while following** — Follow mode takes a screen wake lock. A
+phone that sleeps after thirty seconds also stops delivering GPS fixes, which
+is why "it stopped tracking in my pocket" was the likeliest failure on the day.
+The lock is released when Follow is switched off, released by the browser
+whenever the page is hidden, and taken again when the page comes back.
+
+**Battery saver GPS** — a continuous high-accuracy watch holds the GPS receiver
+on for the whole walk, the single biggest drain on the phone. The toggle in the
+layers drawer swaps it for one fix every 30 s, and the receiver sleeps in
+between; the status line says "GPS every 30 s" while it is in force. Follow
+mode always gets the continuous watch, since re-centring once a second on a
+position that changes every thirty makes no sense, and the setting is
+remembered. High accuracy stays on in both modes: a network fix is worthless
+under the canopy. GPS stops altogether while the page is hidden.
+
 **Built for the phone** — the event device is a phone in one hand, so the layout
 is driven from there: the forecast collapses to a single line, panels measure
 themselves and keep the control stack clear, tap targets stay finger-sized, the

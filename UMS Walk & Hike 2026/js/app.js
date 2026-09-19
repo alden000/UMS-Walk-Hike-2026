@@ -1,6 +1,6 @@
 // UMS Walk & Hike 2026 — interactive route map, progress tracker and weather.
 
-import { Route, ProgressTracker, formatDistance, splitDistance, formatDuration } from './geo.js';
+import { Route, ProgressTracker, haversine, formatDistance, splitDistance, formatDuration } from './geo.js';
 import { CATEGORY, poiIcon, legendIcon, checkpointIcon, clusterIcon, meIcon, weatherIcon } from './icons.js';
 import { loadWeather, cachedWeather, psiBand, pm25Band, uvBand } from './weather.js';
 
@@ -15,6 +15,26 @@ const FOLLOW_INTERVAL_MS = 1000;
 const HEADING_SMOOTHING = 0.25;
 // after this long without a compass reading, GPS course may drive the arrow again
 const COMPASS_STALE_MS = 6000;
+
+// Battery saver: instead of holding the GPS on continuously, ask for one fix
+// this often. Android powers the receiver down between requests.
+const SAVER_POLL_MS = 30 * 1000;
+// a fix under canopy can take a while; give it this long before giving up
+const SAVER_FIX_TIMEOUT_MS = 25 * 1000;
+
+// Progress is written to storage this often while on route, and a saved walk
+// older than this is treated as a previous day's and discarded on start-up.
+const PROGRESS_SAVE_MS = 5 * 1000;
+const PROGRESS_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+const PROGRESS_KEY = 'ums-progress';
+
+// Who to call. 995 is SCDF's emergency line. Fill in the marshal for the event
+// and the card shows a button for them; leave the number blank and it does not.
+const CALLS = [
+  { tel: '995', label: 'Call 995', sub: 'SCDF ambulance / fire', primary: true },
+  { tel: '', label: 'Call the event marshal', sub: 'not set — see CALLS in js/app.js' },
+  { tel: '1800-471-7300', label: 'NParks helpline', sub: '1800-471-7300' },
+];
 const WEATHER_REFRESH_MS = 5 * 60 * 1000;
 
 const state = {
@@ -44,6 +64,13 @@ const state = {
   compassAt: null,
   compassOn: false,
   compassNeedsGesture: false,
+  wakeLock: null,
+  batterySaver: false,
+  gpsMode: null,          // 'watch' | 'poll' | null
+  pollTimer: null,
+  lastFixAt: null,
+  progressSavedAt: 0,
+  restored: false,
 };
 
 // ── base maps ────────────────────────────────────────────────────────
@@ -133,7 +160,9 @@ async function init() {
   buildPois();
   buildLayerUI();
   wireControls();
+  wireSos();
   renderProgress(null);
+  restoreProgress();
 
   startLocating();
   startCompass();
@@ -459,8 +488,11 @@ function buildLayerUI() {
       <span class="n">Kilometre markers</span></label>
     <label><input type="checkbox" id="chk-trails" data-layer="trails">
       <span class="n">Trails &amp; footpaths</span></label>
+    <label><input type="checkbox" id="chk-saver">
+      <span class="n">Battery saver GPS</span><span class="c">fix every ${SAVER_POLL_MS / 1000} s</span></label>
     <label><input type="checkbox" id="chk-follow">
-      <span class="n">Follow me</span><span class="c">1 s</span></label>`;
+      <span class="n">Follow me</span><span class="c">1 s</span></label>
+    <button type="button" id="btn-reset" class="btn subtle">Reset progress to the start</button>`;
 
   for (const box of document.querySelectorAll('[data-layer]')) {
     box.addEventListener('change', () => {
@@ -478,6 +510,11 @@ function buildLayerUI() {
     });
   }
   $('#chk-follow').addEventListener('change', e => setFollowing(e.target.checked));
+  $('#chk-saver').addEventListener('change', e => setBatterySaver(e.target.checked));
+  setBatterySaver(localStorage.getItem('ums-saver') === '1');
+  $('#btn-reset').addEventListener('click', () => {
+    if (confirm('Reset progress and start tracking from the start line again?')) resetProgress();
+  });
   if (state.map.hasLayer(state.layers.trails)) $('#chk-trails').checked = true;
 }
 
@@ -582,7 +619,11 @@ function wireControls() {
   if (savedHud !== '1') setHudOpen(false, true);
 
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) refreshWeather(false);
+    if (!document.hidden) {
+      refreshWeather(false);
+      if (state.following) keepAwake(true);
+    }
+    applyGpsMode();
   });
   // coverage drops in and out along the trail; grab fresh data the moment it returns
   window.addEventListener('online', () => refreshWeather(false));
@@ -613,6 +654,178 @@ function centreOnMe() {
   moveMap(state.lastFix, Math.max(state.map.getZoom(), 17));
 }
 
+// ── emergency card ───────────────────────────────────────────────────
+// One tap for the moment nobody wants: who to call, where you are in a form
+// you can read out or paste into a message, and the nearest defibrillator,
+// shelter and landmark from your last fix. The AED data was already on the map;
+// nobody should be hunting through markers with an incident in front of them.
+
+function wireSos() {
+  $('#btn-sos').addEventListener('click', () => openSos($('#sos').hidden));
+  $('#sos-close').addEventListener('click', () => openSos(false));
+  $('#sos-copy').addEventListener('click', copyLocation);
+  if (navigator.share) {
+    const share = $('#sos-share');
+    share.hidden = false;
+    share.addEventListener('click', () => {
+      navigator.share({ title: 'UMS Walk & Hike — my location', text: locationText() }).catch(() => {});
+    });
+  }
+
+  $('#sos-calls').innerHTML = CALLS.filter(c => c.tel).map(c =>
+    `<a href="tel:${escapeHtml(c.tel)}"${c.primary ? '' : ' class="secondary"'}>
+       <span>${escapeHtml(c.label)}</span><small>${escapeHtml(c.sub)}</small>
+     </a>`).join('');
+}
+
+function openSos(open) {
+  const panel = $('#sos');
+  panel.hidden = !open;
+  $('#btn-sos').setAttribute('aria-pressed', String(open));
+  if (open) {
+    // one panel at a time on the map
+    if (!$('#layers').hidden) {
+      $('#layers').hidden = true;
+      $('#btn-layers').setAttribute('aria-pressed', 'false');
+    }
+    if (window.innerWidth <= 720 && weatherOpen()) setWeatherOpen(false);
+    renderSos();
+  }
+}
+
+/** Plain text of where the walker is, for reading out or pasting into a message. */
+function locationText() {
+  if (!state.lastFix) return 'No GPS fix yet.';
+  const [lat, lon] = state.lastFix;
+  const p = state.lastProgress;
+  const parts = [`I'm at ${lat.toFixed(5)}, ${lon.toFixed(5)}`];
+  if (state.lastAccuracy) parts[0] += ` (±${Math.round(state.lastAccuracy)} m)`;
+  parts.push(`https://maps.google.com/?q=${lat.toFixed(5)},${lon.toFixed(5)}`);
+  if (p && p.onRoute && !p.restored) {
+    const near = nearestCheckpoint(lat, lon);
+    parts.push(`On the UMS walk route at km ${(p.along / 1000).toFixed(2)}`
+      + (near ? `, ${formatDistance(near.d)} from ${near.cp.name}` : ''));
+  }
+  return parts.join('\n');
+}
+
+function nearestCheckpoint(lat, lon) {
+  let best = null;
+  for (const cp of state.checkpoints) {
+    if (cp.id === 'finish') continue;                   // same place as the start
+    const d = haversine(lat, lon, cp.lat, cp.lon);
+    if (!best || d < best.d) best = { cp, d };
+  }
+  return best;
+}
+
+function nearestPoi(cat, lat, lon) {
+  let best = null;
+  (state.pois[cat] || []).forEach((p, i) => {
+    const d = haversine(lat, lon, p.lat, p.lon);
+    if (!best || d < best.d) best = { p, d, i };
+  });
+  return best;
+}
+
+function renderSos() {
+  const where = $('#sos-where');
+  const list = $('#sos-near');
+
+  if (!state.lastFix) {
+    where.textContent = 'Waiting for a GPS fix… The numbers below will fill in as soon as there is one.';
+    list.innerHTML = '<li class="none">Nearest help is worked out from your position once there is a fix.</li>';
+    return;
+  }
+
+  const [lat, lon] = state.lastFix;
+  const age = state.lastFixAt ? Math.round((Date.now() - state.lastFixAt) / 1000) : null;
+  const p = state.lastProgress;
+  const near = nearestCheckpoint(lat, lon);
+  where.innerHTML =
+    `<b>${lat.toFixed(5)}, ${lon.toFixed(5)}</b>`
+    + (state.lastAccuracy ? ` · ±${Math.round(state.lastAccuracy)} m` : '')
+    + (age != null ? ` · ${age < 5 ? 'just now' : `${age} s ago`}` : '')
+    + (p && p.onRoute && !p.restored ? `<br>km ${(p.along / 1000).toFixed(2)} on the route` : '')
+    + (near ? `<br>${formatDistance(near.d)} from ${escapeHtml(near.cp.name)}` : '');
+
+  const rows = [];
+  for (const cat of ['aed', 'shelter', 'toilet']) {
+    const hit = nearestPoi(cat, lat, lon);
+    if (!hit) continue;
+    const { p: poi, d, i } = hit;
+    rows.push(`<li data-cat="${cat}" data-i="${i}">
+      ${legendIcon(cat)}
+      <span class="t">${escapeHtml(poi.name === CATEGORY[cat].label ? CATEGORY[cat].label : poi.name)}
+        <small>${escapeHtml([CATEGORY[cat].label !== poi.name ? CATEGORY[cat].label : '', poi.detail].filter(Boolean).join(' · '))}</small>
+      </span>
+      <span class="d">${formatDistance(d)}</span>
+    </li>`);
+  }
+  if (near) {
+    rows.push(`<li data-cp="${escapeHtml(near.cp.id)}">
+      <span class="ico cp-ico" aria-hidden="true">${escapeHtml(String(near.cp.id).replace('cp', '') || '★')}</span>
+      <span class="t">${escapeHtml(near.cp.name)}<small>Nearest checkpoint — a landmark to describe</small></span>
+      <span class="d">${formatDistance(near.d)}</span>
+    </li>`);
+  }
+  list.innerHTML = rows.join('') || '<li class="none">No facilities in the data.</li>';
+
+  for (const li of list.querySelectorAll('li[data-cat]')) {
+    li.addEventListener('click', () => {
+      const marker = state.markersByCategory[li.dataset.cat][Number(li.dataset.i)];
+      openSos(false);
+      setFollowing(false, true);
+      state.cluster.zoomToShowLayer(marker, () => marker.openPopup());
+    });
+  }
+  for (const li of list.querySelectorAll('li[data-cp]')) {
+    li.addEventListener('click', () => {
+      const cp = state.checkpoints.find(c => c.id === li.dataset.cp);
+      openSos(false);
+      setFollowing(false, true);
+      moveMap([cp.lat, cp.lon], Math.max(state.map.getZoom(), 17));
+    });
+  }
+}
+
+async function copyLocation() {
+  const text = locationText();
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Location copied — paste it into a message');
+  } catch {
+    // no clipboard (insecure origin, or denied): leave it selectable on screen
+    const range = document.createRange();
+    range.selectNodeContents($('#sos-where'));
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    toast('Could not copy automatically — the text is selected, copy it by hand');
+  }
+}
+
+// ── keeping the screen on ────────────────────────────────────────────
+// Follow mode means the phone is being used as a live map, and a phone that
+// sleeps after thirty seconds also stops delivering GPS fixes. The lock is
+// released by the browser whenever the page is hidden, so it is re-requested
+// when the page comes back while still following.
+
+async function keepAwake(on) {
+  if (!('wakeLock' in navigator)) return;
+  if (!on) {
+    if (state.wakeLock) { state.wakeLock.release().catch(() => {}); state.wakeLock = null; }
+    return;
+  }
+  if (state.wakeLock) return;
+  try {
+    state.wakeLock = await navigator.wakeLock.request('screen');
+    state.wakeLock.addEventListener('release', () => { state.wakeLock = null; });
+  } catch {
+    // low battery or a policy: the map still works, the screen just may sleep
+  }
+}
+
 function moveMap(latlng, zoom) {
   state.programmaticMove = true;
   state.map.setView(latlng, zoom, { animate: true, duration: 0.35 });
@@ -627,6 +840,8 @@ function setFollowing(on, silent = false) {
 
   clearInterval(state.followTimer);
   state.followTimer = null;
+  keepAwake(on);
+  applyGpsMode();
 
   if (on) {
     if (!state.lastFix) toast('Following — waiting for a GPS fix…');
@@ -662,16 +877,62 @@ function startLocating() {
     $('#hud-status').textContent = 'This device has no location support';
     return;
   }
-  state.watchId = navigator.geolocation.watchPosition(onFix, onFixError, {
-    enableHighAccuracy: true,
-    maximumAge: 2000,
-    timeout: 20000,
+  state.gpsReady = true;
+  applyGpsMode();
+}
+
+// ── GPS duty cycle ───────────────────────────────────────────────────
+// A continuous high-accuracy watch holds the GPS receiver on for the whole
+// walk, which is the single biggest drain on the phone. Battery saver swaps it
+// for one fix every SAVER_POLL_MS, and the receiver sleeps in between. Follow
+// mode always gets the continuous watch: re-centring once a second on a
+// position that changes every thirty makes no sense. High accuracy stays on in
+// both modes — a network fix is worthless under the canopy.
+
+function applyGpsMode() {
+  if (!state.gpsReady) return;
+  const want = document.hidden ? null
+    : (state.batterySaver && !state.following) ? 'poll' : 'watch';
+  if (want === state.gpsMode) return;
+  stopGps();
+  state.gpsMode = want;
+  if (want === 'watch') {
+    state.watchId = navigator.geolocation.watchPosition(onFix, onFixError, {
+      enableHighAccuracy: true, maximumAge: 2000, timeout: 20000,
+    });
+  } else if (want === 'poll') {
+    pollOnce();
+    state.pollTimer = setInterval(pollOnce, SAVER_POLL_MS);
+  }
+}
+
+function pollOnce() {
+  navigator.geolocation.getCurrentPosition(onFix, onFixError, {
+    enableHighAccuracy: true, maximumAge: 5000, timeout: SAVER_FIX_TIMEOUT_MS,
   });
+}
+
+function stopGps() {
+  if (state.watchId != null) navigator.geolocation.clearWatch(state.watchId);
+  clearInterval(state.pollTimer);
+  state.watchId = null;
+  state.pollTimer = null;
+  state.gpsMode = null;
+}
+
+function setBatterySaver(on) {
+  state.batterySaver = on;
+  localStorage.setItem('ums-saver', on ? '1' : '0');
+  const box = $('#chk-saver');
+  if (box) box.checked = on;
+  applyGpsMode();
+  if (state.lastProgress) renderProgress(state.lastProgress, state.lastAccuracy);
 }
 
 function onFix(pos) {
   const { latitude: lat, longitude: lon, accuracy, heading, speed } = pos.coords;
   state.lastFix = [lat, lon];
+  state.lastFixAt = pos.timestamp || Date.now();
 
   // Course over ground, for devices with no usable compass. It only describes
   // the direction of travel, so it says nothing while standing still — and at a
@@ -695,7 +956,55 @@ function onFix(pos) {
   const progress = state.tracker.update(lat, lon, pos.timestamp || Date.now());
   state.lastProgress = progress;
   state.lastAccuracy = accuracy;
+  state.restored = false;
   renderProgress(progress, accuracy);
+  if (progress.onRoute) saveProgress();
+  if (!$('#sos').hidden) renderSos();
+}
+
+// ── surviving a reload ───────────────────────────────────────────────
+// Sooner or later in a four-hour walk the phone kills the tab. Without this,
+// coming back restarts the walker at zero with no ETA — and, on a loop, a fix
+// near the finish would be read as the start line.
+
+function saveProgress() {
+  const now = Date.now();
+  if (now - state.progressSavedAt < PROGRESS_SAVE_MS) return;
+  const snap = state.tracker.snapshot();
+  if (!snap) return;
+  state.progressSavedAt = now;
+  try {
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify({ ...snap, savedAt: now }));
+  } catch { /* storage full or blocked: nothing to do but carry on */ }
+}
+
+function restoreProgress() {
+  let snap = null;
+  try { snap = JSON.parse(localStorage.getItem(PROGRESS_KEY) || 'null'); } catch { /* ignore */ }
+  if (!snap) return;
+  if (!snap.savedAt || Date.now() - snap.savedAt > PROGRESS_MAX_AGE_MS) {
+    localStorage.removeItem(PROGRESS_KEY);        // a previous day's walk
+    return;
+  }
+  if (!state.tracker.restore(snap)) return;
+  state.restored = true;
+  const along = state.tracker.along;
+  const total = state.route.total;
+  // show the saved numbers straight away rather than zeros until the first fix
+  renderProgress({
+    along, remaining: total - along, fraction: total ? along / total : 0,
+    offset: 0, onRoute: true, speed: null, eta: null, restored: true,
+  }, null);
+}
+
+function resetProgress() {
+  state.tracker.reset();
+  state.restored = false;
+  localStorage.removeItem(PROGRESS_KEY);
+  state.lastProgress = null;
+  renderProgress(null);
+  state.doneLine.setLatLngs([]);
+  toast('Progress reset — tracking from the start again');
 }
 
 // ── which way the walker is facing ───────────────────────────────────
@@ -850,7 +1159,10 @@ function renderProgress(p, accuracy) {
   state.doneLine.setLatLngs(walkedPath(p.along));
 
   const minimised = $('#hud-body').hidden;
-  if (!p.onRoute) {
+  if (p.restored) {
+    status.textContent = `Resumed at ${formatDistance(p.along)} · waiting for GPS…`;
+    status.className = '';
+  } else if (!p.onRoute) {
     status.textContent =
       `Off route — ${formatDistance(p.offset)} from the path · progress reset to the start`;
     status.className = 'warn';
@@ -862,6 +1174,7 @@ function renderProgress(p, accuracy) {
     if (p.eta) parts.push(`${formatDuration(p.eta)} at this pace`);
     else if (p.speed) parts.push(`${(p.speed * 3.6).toFixed(1)} km/h avg`);
     else if (!minimised && accuracy) parts.push(`GPS accurate to ${Math.round(accuracy)} m`);
+    if (state.gpsMode === 'poll') parts.push(`GPS every ${SAVER_POLL_MS / 1000} s`);
     status.textContent = parts.join(' · ') || 'On route';
     status.className = 'live';
   }

@@ -142,6 +142,28 @@ export class ProgressTracker {
     this._lastFixAt = null;
   }
 
+  /**
+   * The part of the state worth keeping across a reload: how far along, when
+   * the walk began, and how long it has been in motion. The phone will kill
+   * the tab at some point in a four-hour walk, and without this every reload
+   * restarts the walker at zero with no ETA.
+   */
+  snapshot() {
+    if (this.along == null) return null;
+    return { along: this.along, startedAt: this.startedAt, movingMs: this._movingMs };
+  }
+
+  restore(snap) {
+    if (!snap || typeof snap.along !== 'number' || !isFinite(snap.along)) return false;
+    this.along = Math.max(0, Math.min(this.route.total, snap.along));
+    this.startedAt = snap.startedAt ?? null;
+    this._movingMs = snap.movingMs || 0;
+    this._backwards = 0;
+    // no fix yet: the gap since the last saved fix must not count as moving time
+    this._lastFixAt = null;
+    return true;
+  }
+
   /** @returns {{along:number, remaining:number, fraction:number, offset:number, onRoute:boolean, speed:number|null, eta:number|null}} */
   update(lat, lon, at = Date.now()) {
     const fix = this.route.project(lat, lon, this.along);

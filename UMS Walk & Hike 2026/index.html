@@ -72,7 +72,33 @@
   <button class="icon-btn toggle" id="btn-layers" title="Map layers &amp; markers" aria-label="Map layers and markers" aria-pressed="false" aria-controls="layers">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3.5 12.5L12 17l8.5-4.5"/></svg>
   </button>
+  <button class="icon-btn toggle sos" id="btn-sos" title="Emergency: my location &amp; nearest help" aria-label="Emergency: my location and nearest help" aria-pressed="false" aria-controls="sos">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5v15M4.5 12h15"/></svg>
+  </button>
 </div>
+
+<!-- ── emergency card ────────────────────────────────────────────── -->
+<section id="sos" class="panel" hidden role="dialog" aria-modal="false" aria-labelledby="sos-title">
+  <div class="sos-head">
+    <h2 id="sos-title">Emergency</h2>
+    <button id="sos-close" class="icon-btn small" title="Close" aria-label="Close emergency card">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+
+  <div class="sos-calls" id="sos-calls"></div>
+
+  <h3>Where you are</h3>
+  <p id="sos-where" class="sos-where">Waiting for a GPS fix…</p>
+  <div class="sos-actions">
+    <button type="button" id="sos-copy" class="btn">Copy location</button>
+    <button type="button" id="sos-share" class="btn" hidden>Share…</button>
+  </div>
+
+  <h3>Nearest help</h3>
+  <ul class="sos-list" id="sos-near"></ul>
+  <p class="fineprint">Distances are straight-line from your last fix. Tap a row to see it on the map.</p>
+</section>
 
 <!-- ── layers drawer ─────────────────────────────────────────────── -->
 <section id="layers" class="panel" hidden aria-label="Map layers and markers">
