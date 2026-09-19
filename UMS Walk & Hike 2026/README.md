@@ -123,15 +123,26 @@ follows the usual convention but could not be checked here — no compass exists
 in a headless browser — so it is worth a glance on the day if anyone walks with
 the phone sideways.
 
-**Emergency card** — the red **+** button. One tap for the moment nobody wants:
-call buttons (995 for SCDF, the NParks helpline, and the event marshal once a
-number is put in `CALLS` at the top of `js/app.js` — the button is hidden while
-it is blank); where you are, as coordinates with the fix's accuracy and age, the
-km mark on the route, and the distance to the nearest landmark, with **Copy** and
-**Share** so it can go straight into a message with a Google Maps link; and the
-nearest AED, shelter and toilet by straight-line distance from the last fix,
-each a tap away on the map. The AED data was always on the map; nobody should
-be hunting through markers with an incident in front of them.
+**Emergency card** — the red **SOS** button. One tap for the moment nobody
+wants: call buttons (995 for SCDF, the NParks helpline, and the event marshal
+once a number is put in `CALLS` at the top of `js/app.js` — the button is hidden
+while it is blank); where you are, as coordinates with the fix's accuracy and
+age, the km mark on the route, and the distance to the nearest landmark, with
+**Copy** and **Share** so it can go straight into a message with a Google Maps
+link; and the nearest AED, **drinking water**, toilet and shelter, each a tap
+away on the map. The AED data was always on the map; nobody should be hunting
+through markers with an incident in front of them.
+
+**Distances follow the route, not the map.** Straight-line distance is close to
+useless here: the loop runs round a reservoir and through closed forest. From
+km 6.0, the nearest AED is 713 m across the water but **1.3 km of walking**, and
+the toilet that looks nearest at 1.4 km is **3.6 km back** along the trail. So
+every distance on the card is measured along the route, both ways round the
+loop with the shorter winning, plus the few metres from the path to the thing
+itself — and each row says **ahead** or **back**, because a facility behind you
+is a different decision from one in front. Off the route there is no route
+distance to give, so the card falls back to straight line and says so rather
+than quoting a number that flatters the walk.
 
 **Surviving a reload** — sooner or later in a four-hour walk the phone kills the
 tab. Distance along, start time and moving time are saved to the device every

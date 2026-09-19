@@ -698,34 +698,80 @@ function locationText() {
   if (!state.lastFix) return 'No GPS fix yet.';
   const [lat, lon] = state.lastFix;
   const p = state.lastProgress;
+  const along = p && p.onRoute ? p.along : null;
   const parts = [`I'm at ${lat.toFixed(5)}, ${lon.toFixed(5)}`];
   if (state.lastAccuracy) parts[0] += ` (±${Math.round(state.lastAccuracy)} m)`;
   parts.push(`https://maps.google.com/?q=${lat.toFixed(5)},${lon.toFixed(5)}`);
-  if (p && p.onRoute && !p.restored) {
-    const near = nearestCheckpoint(lat, lon);
+  if (along != null) {
+    const near = nearestCheckpoint(lat, lon, along);
+    // "past" and "before" read better than "back" and "ahead" for a marshal
+    // being told where to come: it is the landmark that is fixed, not them.
     parts.push(`On the UMS walk route at km ${(p.along / 1000).toFixed(2)}`
-      + (near ? `, ${formatDistance(near.d)} from ${near.cp.name}` : ''));
+      + (near ? `, ${formatDistance(near.d)} ${near.dir === 'back' ? 'past' : 'before'} ${near.cp.name}` : ''));
   }
   return parts.join('\n');
 }
 
-function nearestCheckpoint(lat, lon) {
+/**
+ * How far it is to walk to something at `target` metres along the route, and
+ * which way to set off.
+ *
+ * Straight-line distance is close to useless here. The loop runs round a
+ * reservoir and through closed forest, so a toilet 1.4 km across the water is
+ * 3.6 km of walking, and the marker that looks nearest on the map is regularly
+ * not the nearest one to reach. On a loop either direction is fair game, so
+ * both are measured and the shorter wins; `off` is the walk from the path to
+ * the thing itself.
+ */
+function routeWalk(target, along, off = 0) {
+  const total = state.route.total;
+  const raw = target - along;
+  let fwd, back;
+  if (state.route.isLoop) {
+    fwd = ((raw % total) + total) % total;
+    back = (total - fwd) % total;
+  } else {
+    fwd = raw >= 0 ? raw : Infinity;
+    back = raw < 0 ? -raw : Infinity;
+  }
+  const ahead = fwd <= back;
+  return { d: (ahead ? fwd : back) + off, dir: ahead ? 'ahead' : 'back' };
+}
+
+/**
+ * `along` is where the walker is on the route, or null when they are off it —
+ * then there is no route distance to give and this falls back to straight line,
+ * which the card labels as such.
+ */
+function measure(lat, lon, targetLat, targetLon, targetAlong, off, along) {
+  if (along == null || targetAlong == null) {
+    return { d: haversine(lat, lon, targetLat, targetLon), dir: null };
+  }
+  return routeWalk(targetAlong, along, off);
+}
+
+function nearestCheckpoint(lat, lon, along) {
   let best = null;
   for (const cp of state.checkpoints) {
     if (cp.id === 'finish') continue;                   // same place as the start
-    const d = haversine(lat, lon, cp.lat, cp.lon);
-    if (!best || d < best.d) best = { cp, d };
+    const m = measure(lat, lon, cp.lat, cp.lon, cp.along, 0, along);
+    if (!best || m.d < best.d) best = { cp, ...m };
   }
   return best;
 }
 
-function nearestPoi(cat, lat, lon) {
+function nearestPoi(cat, lat, lon, along) {
   let best = null;
   (state.pois[cat] || []).forEach((p, i) => {
-    const d = haversine(lat, lon, p.lat, p.lon);
-    if (!best || d < best.d) best = { p, d, i };
+    const m = measure(lat, lon, p.lat, p.lon, p.along, p.offset, along);
+    if (!best || m.d < best.d) best = { p, i, ...m };
   });
   return best;
+}
+
+/** "1.3 km ahead", "400 m back", or a bare distance when off route. */
+function walkLabel(m) {
+  return `${formatDistance(m.d)}${m.dir ? ` ${m.dir}` : ''}`;
 }
 
 function renderSos() {
@@ -735,41 +781,48 @@ function renderSos() {
   if (!state.lastFix) {
     where.textContent = 'Waiting for a GPS fix… The numbers below will fill in as soon as there is one.';
     list.innerHTML = '<li class="none">Nearest help is worked out from your position once there is a fix.</li>';
+    $('#sos-note').textContent = 'Distances follow the route once there is a fix.';
     return;
   }
 
   const [lat, lon] = state.lastFix;
   const age = state.lastFixAt ? Math.round((Date.now() - state.lastFixAt) / 1000) : null;
   const p = state.lastProgress;
-  const near = nearestCheckpoint(lat, lon);
+  const along = p && p.onRoute ? p.along : null;
+  const near = nearestCheckpoint(lat, lon, along);
   where.innerHTML =
     `<b>${lat.toFixed(5)}, ${lon.toFixed(5)}</b>`
     + (state.lastAccuracy ? ` · ±${Math.round(state.lastAccuracy)} m` : '')
     + (age != null ? ` · ${age < 5 ? 'just now' : `${age} s ago`}` : '')
-    + (p && p.onRoute && !p.restored ? `<br>km ${(p.along / 1000).toFixed(2)} on the route` : '')
-    + (near ? `<br>${formatDistance(near.d)} from ${escapeHtml(near.cp.name)}` : '');
+    + (along != null ? `<br>km ${(along / 1000).toFixed(2)} on the route` : '<br>Off the route')
+    + (near ? `<br>${formatDistance(near.d)} ${near.dir === 'back' ? 'past' : near.dir === 'ahead' ? 'before' : 'from'} ${escapeHtml(near.cp.name)}` : '');
 
   const rows = [];
-  for (const cat of ['aed', 'shelter', 'toilet']) {
-    const hit = nearestPoi(cat, lat, lon);
+  for (const cat of ['aed', 'water', 'toilet', 'shelter']) {
+    const hit = nearestPoi(cat, lat, lon, along);
     if (!hit) continue;
-    const { p: poi, d, i } = hit;
+    const { p: poi, i } = hit;
+    const label = CATEGORY[cat].label;
     rows.push(`<li data-cat="${cat}" data-i="${i}">
       ${legendIcon(cat)}
-      <span class="t">${escapeHtml(poi.name === CATEGORY[cat].label ? CATEGORY[cat].label : poi.name)}
-        <small>${escapeHtml([CATEGORY[cat].label !== poi.name ? CATEGORY[cat].label : '', poi.detail].filter(Boolean).join(' · '))}</small>
+      <span class="t">${escapeHtml(poi.name === label ? label : poi.name)}
+        <small>${escapeHtml([poi.name !== label ? label : '', poi.detail].filter(Boolean).join(' · '))}</small>
       </span>
-      <span class="d">${formatDistance(d)}</span>
+      <span class="d">${formatDistance(hit.d)}${hit.dir ? `<small>${hit.dir}</small>` : ''}</span>
     </li>`);
   }
   if (near) {
     rows.push(`<li data-cp="${escapeHtml(near.cp.id)}">
       <span class="ico cp-ico" aria-hidden="true">${escapeHtml(String(near.cp.id).replace('cp', '') || '★')}</span>
       <span class="t">${escapeHtml(near.cp.name)}<small>Nearest checkpoint — a landmark to describe</small></span>
-      <span class="d">${formatDistance(near.d)}</span>
+      <span class="d">${formatDistance(near.d)}${near.dir ? `<small>${near.dir}</small>` : ''}</span>
     </li>`);
   }
   list.innerHTML = rows.join('') || '<li class="none">No facilities in the data.</li>';
+  // off the route there is no route distance to give, so say which it is
+  $('#sos-note').textContent = along != null
+    ? 'Distances follow the route from your last fix, the shorter way round. Tap a row to see it on the map.'
+    : 'Off the route, so these are straight-line distances — the walk may be much further. Tap a row to see it on the map.';
 
   for (const li of list.querySelectorAll('li[data-cat]')) {
     li.addEventListener('click', () => {
