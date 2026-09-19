@@ -192,10 +192,25 @@ of the screen.
 
 | Layer | Source | Notes |
 |---|---|---|
-| **Singapore (OneMap)** | OneMap / Singapore Land Authority | The official national basemap. Shows park connectors, nature-reserve paths and reservoir detail. Default. |
+| **OneMap (SLA)** | OneMap / Singapore Land Authority | The official national basemap. Shows park connectors, nature-reserve paths and reservoir detail. Default. |
 | **Trail map** | OneMap Grey + local trail overlay | Muted base with every footpath, track and flight of steps in the corridor drawn on top (1,458 ways), aligned 1:1 with the ground. |
 | **Satellite** | Esri World Imagery | Canopy hides most of the trail surface inside the reserve. |
 | **Street (OSM)** | OpenStreetMap standard | The same data the markers come from. |
+
+Each row in the picker shows a **real tile from that base map**, taken at the
+middle of the route, so it previews what the map will actually look like. The
+thumbnail is built from the same URL template the layer itself uses, so it
+cannot drift from the map it stands for, and because it is an ordinary tile the
+service worker caches it like any other. If it has not loaded, the flat `tint`
+colour shows behind it.
+
+The picker is a **pick-one** control, so it carries a radio dot on the right.
+It previously showed only a small flat colour swatch on the left: three of the
+four base maps are pale, so at that size they read as four *unticked boxes*,
+especially sitting directly above the marker tickboxes, and the row highlight
+was the only thing saying which layer was live. The OneMap row is labelled
+"OneMap (SLA)" rather than "Singapore (OneMap)" because the longer name no
+longer fits on one line — and every base map here is Singapore.
 
 ### On an NParks layer
 

@@ -54,42 +54,55 @@ const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenS
 const BASEMAPS = [
   {
     id: 'onemap',
-    name: 'Singapore (OneMap)',
+    name: 'OneMap (SLA)',
     note: 'Official SLA national basemap — shows park connectors, trails and nature-reserve paths.',
-    swatch: '#e8e3d8',
-    make: () => L.tileLayer('https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png', {
-      minZoom: 11, maxZoom: 19, attribution: ONEMAP_ATTR,
-    }),
+    tint: '#e8e3d8',
+    tiles: 'https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png',
+    opts: { minZoom: 11, maxZoom: 19, attribution: ONEMAP_ATTR },
   },
   {
     id: 'trail',
     name: 'Trail map',
     note: 'Muted OneMap base with every footpath and trail in the corridor drawn on top, aligned 1:1 with the ground.',
-    swatch: '#cfd6cd',
+    tint: '#cfd6cd',
     trails: true,
-    make: () => L.tileLayer('https://www.onemap.gov.sg/maps/tiles/Grey/{z}/{x}/{y}.png', {
-      minZoom: 11, maxZoom: 19, attribution: ONEMAP_ATTR,
-    }),
+    tiles: 'https://www.onemap.gov.sg/maps/tiles/Grey/{z}/{x}/{y}.png',
+    opts: { minZoom: 11, maxZoom: 19, attribution: ONEMAP_ATTR },
   },
   {
     id: 'satellite',
     name: 'Satellite',
     note: 'Esri World Imagery. Canopy hides most trail surface inside the reserve.',
-    swatch: '#3f5340',
-    make: () => L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      { maxZoom: 19, attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' }),
+    tint: '#3f5340',
+    tiles: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    opts: { maxZoom: 19, attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' },
   },
   {
     id: 'osm',
     name: 'Street (OSM)',
     note: 'OpenStreetMap standard — the same data the markers come from.',
-    swatch: '#f2efe9',
-    make: () => L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: OSM_ATTR,
-    }),
+    tint: '#f2efe9',
+    tiles: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    opts: { maxZoom: 19, attribution: OSM_ATTR },
   },
 ];
+
+// The picker shows a real tile from each base map rather than a flat colour, so
+// it previews what the map will actually look like. Taking it from the middle
+// of the route means it is usually already in the tile cache, and it comes from
+// the same URL template the layer itself uses — one source of truth, so a
+// thumbnail cannot drift from the map it stands for. `tint` is only the colour
+// behind the image while it loads, or if it never does.
+const THUMB_ZOOM = 15;
+
+function thumbUrl(spec, lat, lon) {
+  const n = 2 ** THUMB_ZOOM;
+  const rad = lat * Math.PI / 180;
+  const x = Math.floor(((lon + 180) / 360) * n);
+  const y = Math.floor(((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * n);
+  // replaced by name, so Esri's {z}/{y}/{x} ordering needs no special case
+  return spec.tiles.replace('{z}', THUMB_ZOOM).replace('{x}', x).replace('{y}', y);
+}
 
 // ── boot ─────────────────────────────────────────────────────────────
 init().catch(err => {
@@ -159,7 +172,7 @@ function buildMap(routeDoc, trailDoc) {
   state.map = map;
   map.attributionControl.setPrefix('');
 
-  for (const spec of BASEMAPS) state.baseLayers[spec.id] = spec.make();
+  for (const spec of BASEMAPS) state.baseLayers[spec.id] = L.tileLayer(spec.tiles, spec.opts);
 
   // trail overlay, drawn from the same OSM extract as the markers
   const trails = L.layerGroup();
@@ -414,9 +427,13 @@ function buildPois() {
 
 // ── layer / marker UI ────────────────────────────────────────────────
 function buildLayerUI() {
+  const mid = state.routeBounds.getCenter();
   $('#basemaps').innerHTML = BASEMAPS.map(spec =>
     `<button type="button" role="radio" data-id="${spec.id}" aria-checked="false">
-       <span class="sw" style="background:${spec.swatch}"></span>${spec.name}
+       <img class="sw" src="${thumbUrl(spec, mid.lat, mid.lng)}" alt="" aria-hidden="true"
+            decoding="async" style="background:${spec.tint}">
+       <span class="nm">${escapeHtml(spec.name)}</span>
+       <span class="pick" aria-hidden="true"></span>
      </button>`).join('');
   for (const btn of document.querySelectorAll('#basemaps button')) {
     btn.addEventListener('click', () => setBasemap(btn.dataset.id));

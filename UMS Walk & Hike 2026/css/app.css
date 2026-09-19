@@ -242,9 +242,9 @@ h2:first-of-type { margin-top: 0; }
 .seg button {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 8px 9px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: rgba(255, 255, 255, .04);
@@ -260,13 +260,46 @@ h2:first-of-type { margin-top: 0; }
   color: var(--accent-ink);
   font-weight: 600;
 }
+/* A real tile from the base map, at the middle of the route. Big enough to read
+   as a picture: at tickbox size these were four pale squares sitting above the
+   marker tickboxes, and looked like four unticked boxes. */
 .seg button .sw {
   flex: none;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  border: 1px solid rgba(0, 0, 0, .25);
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  border: 1px solid rgba(0, 0, 0, .35);
+  object-fit: cover;
   background-size: cover;
+}
+.seg button .nm { flex: 1; }
+
+/* This is a pick-one control, so it says so: a radio dot, on the right, well
+   away from the thumbnail. Which base map is live was previously carried by
+   the row highlight alone. */
+.seg button .pick {
+  position: relative;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, .35);
+}
+.seg button[aria-checked="true"] .pick {
+  border-color: var(--accent-ink);
+  background: var(--accent-ink);
+}
+.seg button[aria-checked="true"] .pick::after {
+  content: '';
+  position: absolute;
+  left: 4.5px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--accent);
+  border-width: 0 2px 2px 0;
+  border-radius: 1px;
+  transform: rotate(45deg);
 }
 
 .checks { display: flex; flex-direction: column; gap: 3px; }
