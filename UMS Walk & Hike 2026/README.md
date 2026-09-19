@@ -440,12 +440,32 @@ the setup.
 
 ```bash
 python3 tools/build_data.py    # route, POIs, trails, checkpoints
-python3 tools/make_icons.py    # PWA app icons
+python3 tools/make_icon.py     # icons/icon.svg + icons/icon-maskable.svg
 ```
 
 `build_data.py` re-downloads the OSM extracts into `tools/osm/` if they are
-missing (7 tiles, ~45 MB, a couple of minutes). Both scripts are dependency-free
-— standard library only.
+missing (7 tiles, ~45 MB, a couple of minutes). Both scripts are standard
+library only.
+
+`make_icon.py` writes the two SVGs; the PNGs beside them were rasterised from
+those with headless Chromium at 512 and 192 px, and any SVG rasteriser will do.
+The trail is not a hand-drawn outline: a centreline is sampled and a width that
+tapers with distance is offset along its normal. A tapered ribbon folds over
+itself wherever it is wider than the bend it is going round, so the script
+compares the half-width against the radius of curvature at every sample and
+refuses to draw a trail that pinches — the current one clears by 1.36x.
+
+### The icon
+
+A trail winding up through the reserve to a ridge, with the app's green position
+marker sitting on it. The previous icon was the route's own loop drawn in the
+walked/remaining colours, which at launcher size was just an abstract ring with
+no clue what it stood for. This one has to survive 48 px and an arbitrary OS
+mask, so it is built from a handful of large shapes, and the maskable variant is
+the same scene with a wider camera: the sun, the trail, the marker and both
+trees all sit inside the safe circle, while the sky and hills still bleed to
+every edge. `index.html` also links the SVG as a favicon, which stays crisp in
+a browser tab where a downscaled PNG would not.
 
 To use a different route, drop a new KML in `tools/` as `UMS_Walk_2026.kml` and
 re-run. Adjust `OSM_TILES` if the new route leaves the current bounding box.
@@ -466,6 +486,7 @@ data/pois.json          facilities near the route
 data/trails.json        footpath network for the trail layer
 data/checkpoints.json   provisional checkpoints — edit this
 vendor/leaflet.*        Leaflet 1.9.4, vendored for offline use
+icons/                  app icons (SVG sources + rasterised PNGs)
 tools/                  data build scripts + source KML
 ```
 
