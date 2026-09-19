@@ -479,10 +479,12 @@ h2:first-of-type { margin-top: 0; }
 .pin svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .55)); }
 .leaflet-marker-icon.pin-cp { width: 23px !important; height: 23px !important; }
 
-.me-dot { width: 22px; height: 22px; }
+/* The box is 38 px so the facing arrow has room to swing outside the dot; the
+   insets below keep the dot and its ping at the 22 px they have always been. */
+.me-dot { width: 38px; height: 38px; }
 .me-dot .core {
   position: absolute;
-  inset: 5px;
+  inset: 13px;
   border-radius: 50%;
   background: #3b8cff;
   border: 2.5px solid #fff;
@@ -490,10 +492,29 @@ h2:first-of-type { margin-top: 0; }
 }
 .me-dot .ping {
   position: absolute;
-  inset: 0;
+  inset: 8px;
   border-radius: 50%;
   background: rgba(59, 140, 255, .35);
   animation: ping 2.2s ease-out infinite;
+}
+/* Which way the walker is facing. The layer fills the icon and is rotated about
+   its own centre, so the arrow orbits the dot. Hidden until a heading arrives —
+   an arrow pointing at a guess is worse than no arrow. */
+.me-dot .heading {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  will-change: transform;
+  transition: transform .18s linear, opacity .35s ease;
+}
+.me-dot.has-heading .heading { opacity: 1; }
+.me-dot .heading svg {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  display: block;
+  margin-left: -8px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .5));
 }
 @keyframes ping {
   0% { transform: scale(.5); opacity: .9; }

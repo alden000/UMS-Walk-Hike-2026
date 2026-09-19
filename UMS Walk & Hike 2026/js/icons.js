@@ -120,12 +120,21 @@ export function clusterIcon(counts, total) {
 }
 
 /** Pulsing "you are here" dot. */
+// The facing arrow. It lives in its own layer inside the icon so it can be
+// rotated on its own: Leaflet drives the marker element's own transform to
+// position it, and writing a rotation there would fight the map.
+const FACING = '<svg viewBox="0 0 16 14" width="16" height="14" aria-hidden="true">'
+  + '<path d="M8 1.5 14.3 12.3H1.7z" fill="#3b8cff" stroke="#fff" stroke-width="1.9"'
+  + ' stroke-linejoin="round"/></svg>';
+
 export function meIcon() {
   return L.divIcon({
     className: 'me-dot',
-    html: '<div class="ping"></div><div class="core"></div>',
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
+    html: `<div class="ping"></div><div class="heading">${FACING}</div><div class="core"></div>`,
+    // roomy enough for the arrow to swing clear of the dot; the dot itself is
+    // still drawn at its old 22 px, centred in the box
+    iconSize: [38, 38],
+    iconAnchor: [19, 19],
   });
 }
 

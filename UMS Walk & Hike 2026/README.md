@@ -105,6 +105,24 @@ from NEA. See [Weather sources](#weather-sources).
 every second; also available as a checkbox in the layers drawer), fit the whole
 route, and a base-map switcher.
 
+**Which way you are facing** — the blue position dot carries a triangle that
+swings round it to show the way the walker is pointing, so the map can be read
+without working out which junction exit is which. It takes the device compass
+where there is one, which means it turns on the spot rather than only while
+walking, and falls back to GPS course over ground (direction of travel, so it
+only reads while moving and is ignored below 0.5 m/s). Readings are smoothed and
+always rotate the short way round, so crossing north does not spin the arrow.
+**No heading, no arrow** — it stays hidden rather than pointing at a guess.
+
+iOS asks permission for the compass and will only raise that prompt from a tap,
+so the app waits for the first touch anywhere before asking; declining just
+leaves the arrow on GPS course. A compass reading is relative to the top of the
+device, so it is corrected by the screen rotation angle: that correction is zero
+in portrait, which is how the phone will be held on the walk. The landscape case
+follows the usual convention but could not be checked here — no compass exists
+in a headless browser — so it is worth a glance on the day if anyone walks with
+the phone sideways.
+
 **Built for the phone** — the event device is a phone in one hand, so the layout
 is driven from there: the forecast collapses to a single line, panels measure
 themselves and keep the control stack clear, tap targets stay finger-sized, the

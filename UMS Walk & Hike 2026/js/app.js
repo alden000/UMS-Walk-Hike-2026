@@ -11,6 +11,10 @@ const CORRIDOR_M = 2000;
 // how many zoom levels beyond the corridor fit the user may zoom out
 const ZOOM_OUT_SLACK = 1;
 const FOLLOW_INTERVAL_MS = 1000;
+// how much of each compass reading to take; the rest is the previous value
+const HEADING_SMOOTHING = 0.25;
+// after this long without a compass reading, GPS course may drive the arrow again
+const COMPASS_STALE_MS = 6000;
 const WEATHER_REFRESH_MS = 5 * 60 * 1000;
 
 const state = {
@@ -35,6 +39,11 @@ const state = {
   followTimer: null,
   watchId: null,
   weatherTimer: null,
+  heading: null,          // smoothed bearing, degrees clockwise from true north
+  headingCss: null,       // the same angle left unwrapped, for the CSS rotation
+  compassAt: null,
+  compassOn: false,
+  compassNeedsGesture: false,
 };
 
 // ── base maps ────────────────────────────────────────────────────────
@@ -114,6 +123,7 @@ async function init() {
   renderProgress(null);
 
   startLocating();
+  startCompass();
   startWeather();
   registerServiceWorker();
 }
@@ -643,8 +653,15 @@ function startLocating() {
 }
 
 function onFix(pos) {
-  const { latitude: lat, longitude: lon, accuracy } = pos.coords;
+  const { latitude: lat, longitude: lon, accuracy, heading, speed } = pos.coords;
   state.lastFix = [lat, lon];
+
+  // Course over ground, for devices with no usable compass. It only describes
+  // the direction of travel, so it says nothing while standing still — and at a
+  // standstill it is either null or drift. Ignore it below walking pace.
+  if (heading != null && isFinite(heading) && (speed == null || speed > 0.5)) {
+    setHeading(heading, 'gps');
+  }
 
   if (!state.marker) {
     state.marker = L.marker([lat, lon], { icon: meIcon(), zIndexOffset: 1000, interactive: false })
@@ -652,6 +669,7 @@ function onFix(pos) {
     state.accuracyRing = L.circle([lat, lon], {
       radius: accuracy, color: '#3b8cff', weight: 1, fillColor: '#3b8cff', fillOpacity: 0.1, interactive: false,
     }).addTo(state.map);
+    applyHeading();   // the compass may well have been running before the first fix
   } else {
     state.marker.setLatLng([lat, lon]);
     state.accuracyRing.setLatLng([lat, lon]).setRadius(accuracy);
@@ -661,6 +679,107 @@ function onFix(pos) {
   state.lastProgress = progress;
   state.lastAccuracy = accuracy;
   renderProgress(progress, accuracy);
+}
+
+// ── which way the walker is facing ───────────────────────────────────
+// The arrow on the position marker. Two sources, preferred in this order:
+//
+//   device compass   turns with the walker even when they are standing still,
+//                    which is the point of the arrow
+//   GPS course       needs no permission and no magnetometer, but only exists
+//                    while actually moving (see onFix)
+//
+// A compass reading is relative to the top of the *device*, so it is corrected
+// for how far the screen itself has been rotated. In portrait — how the phone
+// will be held on the walk — that correction is zero.
+
+function startCompass() {
+  // Same secure-context rule as geolocation, so on a plain-HTTP LAN copy there
+  // is no compass either; startLocating() already explains that to the walker.
+  if (!window.isSecureContext || !('DeviceOrientationEvent' in window)) return;
+
+  // iOS gates the compass behind a prompt that only a user gesture may raise,
+  // so wait for the first tap rather than asking before the map is even drawn.
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    state.compassNeedsGesture = true;
+    const ask = () => {
+      document.removeEventListener('click', ask);
+      document.removeEventListener('touchend', ask);
+      requestCompass();
+    };
+    document.addEventListener('click', ask);
+    document.addEventListener('touchend', ask, { passive: true });
+    return;
+  }
+  attachCompass();
+}
+
+function requestCompass() {
+  if (!state.compassNeedsGesture) return;
+  state.compassNeedsGesture = false;
+  DeviceOrientationEvent.requestPermission()
+    .then(res => { if (res === 'granted') attachCompass(); })
+    .catch(() => {});   // declining just leaves the arrow on GPS course
+}
+
+function attachCompass() {
+  if (state.compassOn) return;
+  state.compassOn = true;
+  // `deviceorientationabsolute` is the true-north event where it is implemented;
+  // Safari reports the same thing as webkitCompassHeading on plain
+  // `deviceorientation`. Listen for both and use whichever the device sends.
+  window.addEventListener('deviceorientationabsolute', onOrientation, true);
+  window.addEventListener('deviceorientation', onOrientation, true);
+}
+
+function onOrientation(e) {
+  let deg = null;
+  if (typeof e.webkitCompassHeading === 'number' && isFinite(e.webkitCompassHeading)) {
+    deg = e.webkitCompassHeading;          // already degrees clockwise from north
+  } else if (e.absolute === true && typeof e.alpha === 'number') {
+    deg = 360 - e.alpha;                   // alpha is measured anticlockwise
+  }
+  if (deg == null) return;
+
+  const screenAngle = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+  setHeading(deg + screenAngle, 'compass');
+}
+
+/** Fold a new bearing into the displayed one. */
+function setHeading(deg, source) {
+  if (deg == null || !isFinite(deg)) return;
+  deg = ((deg % 360) + 360) % 360;
+
+  const now = Date.now();
+  if (source === 'compass') {
+    state.compassAt = now;
+  } else if (state.compassAt && now - state.compassAt < COMPASS_STALE_MS) {
+    return;                // a live compass beats course over ground
+  }
+
+  if (state.heading == null) {
+    state.heading = deg;
+    state.headingCss = deg;
+  } else {
+    // Always turn the short way. Without this a walker facing north makes the
+    // arrow spin most of a circle every time the reading crosses 0°/360°, and
+    // because the CSS angle is left unwrapped the animation follows the short
+    // arc too rather than unwinding.
+    const step = ((deg - state.heading + 540) % 360) - 180;
+    const eased = source === 'compass' ? step * HEADING_SMOOTHING : step;
+    state.heading = (state.heading + eased + 360) % 360;
+    state.headingCss += eased;
+  }
+  applyHeading();
+}
+
+function applyHeading() {
+  if (state.heading == null || !state.marker) return;
+  const el = state.marker.getElement();
+  const arrow = el && el.querySelector('.heading');
+  if (!arrow) return;
+  el.classList.add('has-heading');
+  arrow.style.transform = `rotate(${state.headingCss.toFixed(1)}deg)`;
 }
 
 function onFixError(err) {
