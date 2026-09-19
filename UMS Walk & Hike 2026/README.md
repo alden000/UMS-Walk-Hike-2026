@@ -119,14 +119,14 @@ it to the home screen for a full-screen, chrome-free map.
 
 ### Checkpoint photos
 
-**Every checkpoint has a photo**, and so does the car park marker. All but two
+**Every checkpoint has a photo**, and so does the car park marker. All of them
 are the organiser's own photographs of the route, supplied for the event:
 
 | # | Checkpoint | Shows |
 |---|---|---|
 | — | Start / Finish | the car park, looking in from the entrance |
-| 1 | MacRitchie Ranger Station | the ranger station building — *pslim, CC BY-NC-SA 2.0* |
-| 2 | HSBC TreeTop Walk | the suspension bridge — *Mokkie, CC BY-SA 3.0* |
+| 1 | MacRitchie Ranger Station | the ranger station shelter, with a macaque on the rock in front |
+| 2 | HSBC TreeTop Walk | looking along the suspension bridge through the canopy |
 | 3 | Bukit Kallang | canopy view over the reserve towards the reservoir |
 | 4 | Petaling Boardwalk | the boardwalk through the forest |
 | 5 | Jelutong Tower | the observation tower above the canopy |
@@ -138,15 +138,17 @@ are the organiser's own photographs of the route, supplied for the event:
 | 11 | Petai Trail Boardwalk | the boardwalk deck at the water's edge |
 
 About 700 KB in total at 480 px wide, precached so they work offline. **A photo
-with an empty `credit` shows no caption at all**, which is how all the
-organiser's own images display; only checkpoints 1 and 2 carry an attribution
-line, because their licences require it.
+with an empty `credit` shows no caption at all**, and every entry now has one, so
+no image carries a caption band. The captioning is kept because it is what makes
+a sourced image safe to drop in later.
 
-The organiser's photographs settled a question the sourced ones could not.
+The organiser's photographs settled a question sourced ones could not.
 Searching the free image pools for the Lim Bo Seng Memorial kept returning the
 Esplanade Park monument on the waterfront — the wrong side of the island from the
 grave above the reservoir — so checkpoint 9 had been left blank rather than given
-a misleading picture. The supplied photo is the real one. Google Maps photos were
+a misleading picture. The supplied photo is the real one. Sourced images filled
+checkpoints 1 and 2 for a while and are now replaced as well, so nothing on the
+map is a stand-in. Google Maps photos were
 never an option: they are copyrighted by Google or by the people who uploaded
 them, and the Maps terms forbid copying them out.
 
@@ -160,8 +162,8 @@ drawn on the map**, so checkpoint 8 is `cp8`:
 
 Add the file to the `SHELL` list in `sw.js` to have it precached, and resize it
 to about 480 px wide first (`tools/` has no resizer; any image editor will do).
-`tools/fetch_photos.py` re-downloads the one Wikimedia Commons image and records
-where the Flickr one came from.
+If the new image needs attribution, fill in `credit` and `licence` and the caption
+comes back on its own.
 
 The image is given an explicit height in CSS rather than `max-height`: Leaflet
 measures a popup to pan it into view the instant it opens, before the image has

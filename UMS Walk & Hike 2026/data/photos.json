@@ -1,90 +1,89 @@
 {
- "note": "Most photos are the organiser's own, supplied for the event: their empty \"credit\" means no caption is drawn. Two are freely-licensed images from Wikimedia Commons and Flickr and keep their attribution.",
- "photos": {
-  "cp2": {
-   "file": "photos/cp2.jpg",
-   "credit": "Mokkie",
-   "licence": "CC BY-SA 3.0",
-   "source": "https://commons.wikimedia.org/wiki/File:Tree_Top_Walk_at_MacRitchie,_Singapore_1.jpg"
-  },
-  "cp5": {
-   "file": "photos/cp5.jpg",
-   "credit": "",
-   "licence": "",
-   "shows": "The observation tower above the canopy"
-  },
-  "cp10": {
-   "file": "photos/cp10.jpg",
-   "credit": "",
-   "licence": "",
-   "shows": "The park pavilion and boardwalk over the water"
-  },
-  "cp1": {
-   "file": "photos/cp1.jpg",
-   "credit": "pslim",
-   "licence": "CC BY-NC-SA 2.0",
-   "source": "https://www.flickr.com/photos/pslim/",
-   "shows": "MacRitchie ranger station building"
-  },
-  "cp3": {
-   "file": "photos/cp3.jpg",
-   "credit": "",
-   "licence": "",
-   "shows": "Canopy view over the reserve towards the reservoir"
-  },
-  "cp6": {
-   "file": "photos/cp6.jpg",
-   "credit": "",
-   "licence": "",
-   "shows": "Surviving bridge posts standing in the reservoir"
-  },
-  "cp11": {
-   "file": "photos/cp11.jpg",
-   "credit": "",
-   "licence": "",
-   "shows": "The boardwalk deck at the water's edge"
-  },
-  "start": {
-   "file": "photos/start.jpg",
-   "credit": "",
-   "licence": "",
-   "shows": "The Windsor Nature Park car park, looking in from the entrance"
-  },
-  "finish": {
-   "file": "photos/start.jpg",
-   "credit": "",
-   "licence": "",
-   "shows": "The Windsor Nature Park car park, looking in from the entrance"
-  },
-  "nparks-windsor-carpark": {
-   "file": "photos/start.jpg",
-   "credit": "",
-   "licence": "",
-   "shows": "The Windsor Nature Park car park, looking in from the entrance"
-  },
-  "cp4": {
-   "file": "photos/cp4.jpg",
-   "credit": "",
-   "licence": "",
-   "shows": "The boardwalk through the forest"
-  },
-  "cp7": {
-   "file": "photos/cp7.jpg",
-   "credit": "",
-   "licence": "",
-   "shows": "The signed shelter on the Jering Trail"
-  },
-  "cp8": {
-   "file": "photos/cp8.jpg",
-   "credit": "",
-   "licence": "",
-   "shows": "The leaning tree over the waterside boardwalk"
-  },
-  "cp9": {
-   "file": "photos/cp9.jpg",
-   "credit": "",
-   "licence": "",
-   "shows": "The memorial and grave above the reservoir"
+  "note": "Every photo is supplied by the organiser for the event: an empty \"credit\" means no caption is drawn over the image.",
+  "photos": {
+    "cp2": {
+      "file": "photos/cp2.jpg",
+      "credit": "",
+      "licence": "",
+      "shows": "Looking along the suspension bridge through the canopy"
+    },
+    "cp5": {
+      "file": "photos/cp5.jpg",
+      "credit": "",
+      "licence": "",
+      "shows": "The observation tower above the canopy"
+    },
+    "cp10": {
+      "file": "photos/cp10.jpg",
+      "credit": "",
+      "licence": "",
+      "shows": "The park pavilion and boardwalk over the water"
+    },
+    "cp1": {
+      "file": "photos/cp1.jpg",
+      "credit": "",
+      "licence": "",
+      "shows": "The ranger station shelter, with a macaque on the rock in front"
+    },
+    "cp3": {
+      "file": "photos/cp3.jpg",
+      "credit": "",
+      "licence": "",
+      "shows": "Canopy view over the reserve towards the reservoir"
+    },
+    "cp6": {
+      "file": "photos/cp6.jpg",
+      "credit": "",
+      "licence": "",
+      "shows": "Surviving bridge posts standing in the reservoir"
+    },
+    "cp11": {
+      "file": "photos/cp11.jpg",
+      "credit": "",
+      "licence": "",
+      "shows": "The boardwalk deck at the water's edge"
+    },
+    "start": {
+      "file": "photos/start.jpg",
+      "credit": "",
+      "licence": "",
+      "shows": "The Windsor Nature Park car park, looking in from the entrance"
+    },
+    "finish": {
+      "file": "photos/start.jpg",
+      "credit": "",
+      "licence": "",
+      "shows": "The Windsor Nature Park car park, looking in from the entrance"
+    },
+    "nparks-windsor-carpark": {
+      "file": "photos/start.jpg",
+      "credit": "",
+      "licence": "",
+      "shows": "The Windsor Nature Park car park, looking in from the entrance"
+    },
+    "cp4": {
+      "file": "photos/cp4.jpg",
+      "credit": "",
+      "licence": "",
+      "shows": "The boardwalk through the forest"
+    },
+    "cp7": {
+      "file": "photos/cp7.jpg",
+      "credit": "",
+      "licence": "",
+      "shows": "The signed shelter on the Jering Trail"
+    },
+    "cp8": {
+      "file": "photos/cp8.jpg",
+      "credit": "",
+      "licence": "",
+      "shows": "The leaning tree over the waterside boardwalk"
+    },
+    "cp9": {
+      "file": "photos/cp9.jpg",
+      "credit": "",
+      "licence": "",
+      "shows": "The memorial and grave above the reservoir"
+    }
   }
- }
 }

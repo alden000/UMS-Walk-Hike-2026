@@ -5,7 +5,7 @@
 //   map tiles               cached as they are viewed, capped, stale-while-revalidate
 //   NEA weather             network-only (the app keeps its own short-lived copy)
 
-const VERSION = 'v15';
+const VERSION = 'v16';
 const SHELL_CACHE = `ums-shell-${VERSION}`;
 const TILE_CACHE = `ums-tiles-${VERSION}`;
 const MAX_TILES = 1200;
