@@ -28,6 +28,17 @@ const PROGRESS_SAVE_MS = 5 * 1000;
 const PROGRESS_MAX_AGE_MS = 8 * 60 * 60 * 1000;
 const PROGRESS_KEY = 'ums-progress';
 
+// ── saving the map for the trail ─────────────────────────────────────
+// How wide a strip either side of the route to download, and how far in to
+// zoom. The pan fence is 2 km, but downloading 2 km of forest at z17 would be
+// thousands of tiles for ground nobody walks on; 400 m covers the path, the
+// junctions off it and the reservoir edge. z17 is about 1.2 m per pixel, which
+// is as close as anyone needs on foot — zoom past it off-grid and tiles will be
+// blank, which the drawer says.
+const SAVE_CORRIDOR_M = 400;
+const SAVE_ZOOMS = [14, 15, 16, 17];
+const SAVED_KEY = 'ums-saved-maps';
+
 // Who to call. 995 is SCDF's emergency line. Fill in the marshal for the event
 // and the card shows a button for them; leave the number blank and it does not.
 const CALLS = [
@@ -71,6 +82,7 @@ const state = {
   lastFixAt: null,
   progressSavedAt: 0,
   restored: false,
+  saving: false,
 };
 
 // ── base maps ────────────────────────────────────────────────────────
@@ -85,7 +97,7 @@ const BASEMAPS = [
     note: 'Official SLA national basemap — shows park connectors, trails and nature-reserve paths.',
     tint: '#e8e3d8',
     tiles: 'https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png',
-    opts: { minZoom: 11, maxZoom: 19, attribution: ONEMAP_ATTR },
+    opts: { minZoom: 11, maxZoom: 19, attribution: ONEMAP_ATTR, crossOrigin: 'anonymous' },
   },
   {
     id: 'trail',
@@ -94,7 +106,7 @@ const BASEMAPS = [
     tint: '#cfd6cd',
     trails: true,
     tiles: 'https://www.onemap.gov.sg/maps/tiles/Grey/{z}/{x}/{y}.png',
-    opts: { minZoom: 11, maxZoom: 19, attribution: ONEMAP_ATTR },
+    opts: { minZoom: 11, maxZoom: 19, attribution: ONEMAP_ATTR, crossOrigin: 'anonymous' },
   },
   {
     id: 'satellite',
@@ -102,7 +114,7 @@ const BASEMAPS = [
     note: 'Esri World Imagery. Canopy hides most trail surface inside the reserve.',
     tint: '#3f5340',
     tiles: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    opts: { maxZoom: 19, attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' },
+    opts: { maxZoom: 19, attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics', crossOrigin: 'anonymous' },
   },
   {
     id: 'osm',
@@ -110,7 +122,7 @@ const BASEMAPS = [
     note: 'OpenStreetMap standard — the same data the markers come from.',
     tint: '#f2efe9',
     tiles: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    opts: { maxZoom: 19, attribution: OSM_ATTR },
+    opts: { maxZoom: 19, attribution: OSM_ATTR, crossOrigin: 'anonymous' },
   },
 ];
 
@@ -279,6 +291,7 @@ function applyBounds() {
 }
 
 function setBasemap(id) {
+  if ($('#save-note')) setTimeout(renderSaveState, 0);
   const spec = BASEMAPS.find(s => s.id === id) || BASEMAPS[0];
   if (state.activeBase === spec.id) return;
   for (const layer of Object.values(state.baseLayers)) state.map.removeLayer(layer);
@@ -512,6 +525,18 @@ function buildLayerUI() {
   $('#chk-follow').addEventListener('change', e => setFollowing(e.target.checked));
   $('#chk-saver').addEventListener('change', e => setBatterySaver(e.target.checked));
   setBatterySaver(localStorage.getItem('ums-saver') === '1');
+  $('#btn-save-map').addEventListener('click', () => {
+    if (state.saving) {
+      navigator.serviceWorker.controller?.postMessage({ type: 'cancel-save' });
+      renderSaveState('Stopping…');
+    } else {
+      saveMapOffline();
+    }
+  });
+  $('#btn-clear-map').addEventListener('click', () => {
+    if (confirm('Delete the saved offline maps from this device?')) clearSavedMaps();
+  });
+  renderSaveState();
   $('#btn-reset').addEventListener('click', () => {
     if (confirm('Reset progress and start tracking from the start line again?')) resetProgress();
   });
@@ -652,6 +677,142 @@ function centreOnMe() {
     return;
   }
   moveMap(state.lastFix, Math.max(state.map.getZoom(), 17));
+}
+
+// ── saving the map for the trail ─────────────────────────────────────
+// The app caches tiles as they are viewed, which quietly means "offline" only
+// covers ground already scrolled past. In the reserve, where coverage drops
+// out, that is the difference between a map and a blank screen. This walks the
+// route, works out every tile within SAVE_CORRIDOR_M of it at each zoom, and
+// hands the list to the service worker to fetch and keep.
+
+/** Tile column/row containing (lat, lon) at zoom z, Web Mercator. */
+function tileAt(lat, lon, z) {
+  const n = 2 ** z;
+  const rad = lat * Math.PI / 180;
+  return [
+    Math.floor(((lon + 180) / 360) * n),
+    Math.floor(((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * n),
+  ];
+}
+
+/** Every tile URL for `spec` covering the route and its corridor. */
+function corridorTiles(spec) {
+  const urls = [];
+  for (const z of SAVE_ZOOMS) {
+    const seen = new Set();
+    for (const [lat, lon] of state.route.latLngs()) {
+      // the route's own points are ~30 m apart, so a box round each one leaves
+      // no gap between them at any of these zooms
+      const dLat = SAVE_CORRIDOR_M / 110574;
+      const dLon = SAVE_CORRIDOR_M / (111320 * Math.cos(lat * Math.PI / 180));
+      const [x0, y0] = tileAt(lat + dLat, lon - dLon, z);
+      const [x1, y1] = tileAt(lat - dLat, lon + dLon, z);
+      for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+        for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) {
+          const key = `${x}/${y}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          urls.push(spec.tiles.replace('{z}', z).replace('{x}', x).replace('{y}', y));
+        }
+      }
+    }
+  }
+  return urls;
+}
+
+function savedMaps() {
+  try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '{}'); } catch { return {}; }
+}
+
+function renderSaveState(text) {
+  const note = $('#save-note');
+  const btn = $('#btn-save-map');
+  const clear = $('#btn-clear-map');
+  if (!note) return;
+
+  if (text) { note.textContent = text; return; }
+  // a base map switch or any other re-render must not wipe the running count
+  if (state.saving) { btn.disabled = false; btn.textContent = 'Stop saving'; return; }
+
+  if (!navigator.serviceWorker || !window.isSecureContext) {
+    btn.disabled = true;
+    clear.hidden = true;
+    note.textContent = 'Needs HTTPS — offline storage is not available on a plain-HTTP address.';
+    return;
+  }
+
+  const saved = savedMaps();
+  // a save that was stopped part-way is still useful, but saying "saved" flat
+  // out would promise cover it does not have
+  const names = Object.keys(saved)
+    .map(id => ({ spec: BASEMAPS.find(b => b.id === id), rec: saved[id] }))
+    .filter(e => e.spec)
+    .map(e => e.rec && e.rec.partial ? `${e.spec.name} (part)` : e.spec.name);
+  const active = BASEMAPS.find(b => b.id === state.activeBase);
+  btn.textContent = `Save “${active ? active.name : 'map'}” for offline`;
+  btn.disabled = false;
+  clear.hidden = !names.length;
+  note.textContent = names.length
+    ? `Saved: ${names.join(', ')}. The route and ${SAVE_CORRIDOR_M} m either side, zoom ${SAVE_ZOOMS[0]}–${SAVE_ZOOMS[SAVE_ZOOMS.length - 1]}. Closer in than that still needs signal.`
+    : `Nothing saved yet. Tiles are only kept as you view them, so anywhere you have not scrolled over will be blank in the reserve.`;
+}
+
+async function saveMapOffline() {
+  const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+  if (!sw) {
+    toast('Offline saving needs the app to be installed or reloaded once');
+    return;
+  }
+  const spec = BASEMAPS.find(b => b.id === state.activeBase);
+  if (!spec || state.saving) return;
+
+  const urls = corridorTiles(spec);
+  state.saving = true;
+  $('#btn-save-map').textContent = 'Stop saving';
+  $('#btn-clear-map').hidden = true;
+  renderSaveState(`Saving ${spec.name}… 0 of ${urls.length} tiles`);
+
+  const onMessage = ev => {
+    const m = ev.data;
+    if (!m || m.type !== 'save-progress') return;
+    if (m.finished) {
+      navigator.serviceWorker.removeEventListener('message', onMessage);
+      state.saving = false;
+      if (m.quota) {
+        toast('Ran out of storage — free some space and try again');
+      } else if (m.cancelled) {
+        // the tiles fetched so far are kept: a part-saved map beats none
+        if (m.saved) {
+          const maps = savedMaps();
+          maps[spec.id] = { tiles: m.saved, at: Date.now(), partial: true };
+          try { localStorage.setItem(SAVED_KEY, JSON.stringify(maps)); } catch { /* ignore */ }
+        }
+        toast(`Stopped — ${m.saved} tiles kept`);
+      } else {
+        const maps = savedMaps();
+        maps[spec.id] = { tiles: m.saved, at: Date.now() };
+        try { localStorage.setItem(SAVED_KEY, JSON.stringify(maps)); } catch { /* ignore */ }
+        toast(m.failed
+          ? `Saved ${m.saved} tiles, ${m.failed} failed — try again on a better connection`
+          : `${spec.name} saved — ${m.saved} tiles ready offline`);
+      }
+      renderSaveState();
+    } else {
+      renderSaveState(`Saving ${spec.name}… ${m.done} of ${m.total} tiles`);
+    }
+  };
+  navigator.serviceWorker.addEventListener('message', onMessage);
+  sw.postMessage({ type: 'save-tiles', urls });
+}
+
+function clearSavedMaps() {
+  const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+  if (!sw) return;
+  sw.postMessage({ type: 'forget-tiles', urls: [] });
+  localStorage.removeItem(SAVED_KEY);
+  renderSaveState();
+  toast('Saved maps cleared');
 }
 
 // ── emergency card ───────────────────────────────────────────────────

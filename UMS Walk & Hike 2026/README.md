@@ -176,9 +176,38 @@ thing is checked at 320 px as well as 390 px. Tablet and desktop get the roomier
 version for planning: the forecast opens by default and the panels widen.
 
 **Offline** — a service worker precaches the app shell and all route data, and
-caches map tiles as you view them (capped at 1200). Open the app over the route
-once on wi-fi and it will work in the reserve, where coverage is patchy. Install
-it to the home screen for a full-screen, chrome-free map.
+caches map tiles as you view them (capped at 1200). Install it to the home
+screen for a full-screen, chrome-free map.
+
+**Save map for offline** (layers drawer) — caching tiles as they are viewed
+quietly means offline only covers ground you have already scrolled over, which
+in the reserve is the difference between a map and a blank screen. This button
+downloads every tile the route needs in one go: **209 tiles, about 1.7 MB, 14
+seconds** on a decent connection. It covers the route and 400 m either side at
+zoom 14–17 — the pan fence is 2 km, but 2 km of forest at z17 would be thousands
+of tiles for ground nobody walks on, and z17 is about 1.2 m per pixel, as close
+as anyone needs on foot. Closer in than that still needs signal. It saves the
+base map you are currently on, so switch and save again for a second one; a save
+can be stopped part-way and the tiles already fetched are kept and labelled
+"(part)".
+
+Saved tiles live in their own cache, apart from the ones picked up in passing,
+for two reasons: the browsing cache is trimmed oldest-first, so a saved map
+would be the first thing evicted by an afternoon of panning about; and its name
+carries no version, so shipping an app update does not throw away a map someone
+downloaded the night before.
+
+The tiles are fetched **as CORS requests, and this is the whole feature**. Done
+the obvious way — `no-cors`, as an `<img>` does — every response is opaque, and
+an opaque response is padded in Cache Storage accounting so its true size cannot
+be probed cross-origin. Chrome's padding is about 7 MB per response. Measured:
+131 opaque tiles took usage from 110 MB to **1014 MB** and the save died on a
+quota error two-thirds of the way through. All three tile hosts send
+`Access-Control-Allow-Origin: *`, so the same 209 tiles fetched as CORS cost
+**1.7 MB**, and still render for the plain `<img>` requests Leaflet makes,
+because a cache entry is keyed on URL and not on the mode it was fetched with.
+The tile layers now set `crossOrigin` for the same reason, so the browsing cache
+stops charging megabytes of quota per 20 KB tile as well.
 
 ### Checkpoint photos
 
