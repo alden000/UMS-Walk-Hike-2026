@@ -5,7 +5,7 @@
 //   map tiles               cached as they are viewed, capped, stale-while-revalidate
 //   NEA weather             network-only (the app keeps its own short-lived copy)
 
-const VERSION = 'v23';
+const VERSION = 'v24';
 const SHELL_CACHE = `ums-shell-${VERSION}`;
 const TILE_CACHE = `ums-tiles-${VERSION}`;
 const MAX_TILES = 1200;
@@ -126,22 +126,30 @@ async function shellFirst(request) {
 
 /** Tiles: serve the cached copy if there is one, otherwise fetch and keep it. */
 async function tileFirst(request) {
+  // The tile layers set crossOrigin, so tile requests are CORS requests, and an
+  // opaque response cannot answer one: the browser rejects it and the tile
+  // renders black. A cached opaque tile therefore counts as a miss and is
+  // fetched again, rather than being handed back for ever. Every tile cached by
+  // a build from before crossOrigin was set is opaque, which turned the whole
+  // map black on the next start for anyone who had used the app already.
+  const wantsCors = request.mode === 'cors';
+  const usable = res => !!res && !(wantsCors && res.type === 'opaque');
+
   // a deliberately saved map wins over the browsing cache and over the network
   const saved = await caches.open(OFFLINE_CACHE);
   const savedHit = await saved.match(request);
-  if (savedHit) return savedHit;
+  if (usable(savedHit)) return savedHit;
 
   const cache = await caches.open(TILE_CACHE);
   const hit = await cache.match(request);
-  if (hit) return hit;
+  if (usable(hit)) return hit;
 
   try {
     const res = await fetch(request);
-    // The tile layers set crossOrigin, so these arrive as proper CORS responses
-    // and are accounted at their real size. A response that is opaque anyway
-    // still renders, so it is still worth keeping — but see saveTiles() for why
-    // an opaque tile costs megabytes of quota rather than kilobytes.
-    if (res.ok || res.type === 'opaque') {
+    // Only responses this app can actually use again are kept. Storing an
+    // opaque one poisons the cache for the next load, and Cache Storage pads it
+    // by megabytes into the bargain — see saveTiles().
+    if (res.ok) {
       // a full tile cache must not break tile loading
       cache.put(request, res.clone()).then(() => trimTiles(cache)).catch(() => {});
     }
