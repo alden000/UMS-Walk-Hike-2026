@@ -1,5 +1,5 @@
 {
- "note": "Freely-licensed photos from Wikimedia Commons and Flickr (found via Openverse). Every one was opened and checked against the landmark before being used. Set a photo's \"credit\" to \"\" to hide its caption.",
+ "note": "Most photos are the organiser's own, supplied for the event: their empty \"credit\" means no caption is drawn. Two are freely-licensed images from Wikimedia Commons and Flickr and keep their attribution.",
  "photos": {
   "cp2": {
    "file": "photos/cp2.jpg",
@@ -9,15 +9,15 @@
   },
   "cp5": {
    "file": "photos/cp5.jpg",
-   "credit": "Mokkie",
-   "licence": "CC BY-SA 3.0",
-   "source": "https://commons.wikimedia.org/wiki/File:Jelutong_Tower_1.jpg"
+   "credit": "",
+   "licence": "",
+   "shows": "The observation tower above the canopy"
   },
   "cp10": {
    "file": "photos/cp10.jpg",
-   "credit": "Larrid31",
-   "licence": "CC BY-SA 4.0",
-   "source": "https://commons.wikimedia.org/wiki/File:MacRitchie_Reservoir_Park.jpg"
+   "credit": "",
+   "licence": "",
+   "shows": "The park pavilion and boardwalk over the water"
   },
   "cp1": {
    "file": "photos/cp1.jpg",
@@ -28,24 +28,21 @@
   },
   "cp3": {
    "file": "photos/cp3.jpg",
-   "credit": "Eustaquio Santimano",
-   "licence": "CC BY-NC-SA 2.0",
-   "source": "https://www.flickr.com/photos/eustaquio/",
-   "shows": "Forest floor seen from the TreeTop Walk"
+   "credit": "",
+   "licence": "",
+   "shows": "Canopy view over the reserve towards the reservoir"
   },
   "cp6": {
    "file": "photos/cp6.jpg",
-   "credit": "sunriseOdyssey",
-   "licence": "CC BY-SA 2.0",
-   "source": "https://www.flickr.com/photos/sunriseodyssey/",
-   "shows": "Overgrown stone remains of the Syonan Jinja"
+   "credit": "",
+   "licence": "",
+   "shows": "Surviving bridge posts standing in the reservoir"
   },
   "cp11": {
    "file": "photos/cp11.jpg",
-   "credit": "Jnzl's Photos",
-   "licence": "CC BY 2.0",
-   "source": "https://www.flickr.com/photos/jnzls-photos/",
-   "shows": "A MacRitchie boardwalk (representative of the Petai stretch)"
+   "credit": "",
+   "licence": "",
+   "shows": "The boardwalk deck at the water's edge"
   },
   "start": {
    "file": "photos/start.jpg",
@@ -64,6 +61,30 @@
    "credit": "",
    "licence": "",
    "shows": "The Windsor Nature Park car park, looking in from the entrance"
+  },
+  "cp4": {
+   "file": "photos/cp4.jpg",
+   "credit": "",
+   "licence": "",
+   "shows": "The boardwalk through the forest"
+  },
+  "cp7": {
+   "file": "photos/cp7.jpg",
+   "credit": "",
+   "licence": "",
+   "shows": "The signed shelter on the Jering Trail"
+  },
+  "cp8": {
+   "file": "photos/cp8.jpg",
+   "credit": "",
+   "licence": "",
+   "shows": "The leaning tree over the waterside boardwalk"
+  },
+  "cp9": {
+   "file": "photos/cp9.jpg",
+   "credit": "",
+   "licence": "",
+   "shows": "The memorial and grave above the reservoir"
   }
  }
 }

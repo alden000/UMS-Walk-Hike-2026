@@ -119,47 +119,49 @@ it to the home screen for a full-screen, chrome-free map.
 
 ### Checkpoint photos
 
-A popup shows a photo when one is available — eight of the thirteen checkpoints
-have one, and so does the car park marker.
+**Every checkpoint has a photo**, and so does the car park marker. All but two
+are the organiser's own photographs of the route, supplied for the event:
 
-| # | Checkpoint | Shows | Credit | Licence |
-|---|---|---|---|---|
-| — | Start / Finish | the car park, looking in from the entrance | organiser | — |
-| 1 | MacRitchie Ranger Station | the ranger station building | pslim | CC BY-NC-SA 2.0 |
-| 2 | HSBC TreeTop Walk | the suspension bridge | Mokkie | CC BY-SA 3.0 |
-| 3 | Bukit Kallang | forest floor from the TreeTop Walk | Eustaquio Santimano | CC BY-NC-SA 2.0 |
-| 5 | Jelutong Tower | the tower | Mokkie | CC BY-SA 3.0 |
-| 6 | Syonan Jinja Ruins | the overgrown stone remains | sunriseOdyssey | CC BY-SA 2.0 |
-| 10 | MacRitchie Reservoir Park | the park | Larrid31 | CC BY-SA 4.0 |
-| 11 | Petai Trail Boardwalk | a MacRitchie boardwalk* | Jnzl's Photos | CC BY 2.0 |
+| # | Checkpoint | Shows |
+|---|---|---|
+| — | Start / Finish | the car park, looking in from the entrance |
+| 1 | MacRitchie Ranger Station | the ranger station building — *pslim, CC BY-NC-SA 2.0* |
+| 2 | HSBC TreeTop Walk | the suspension bridge — *Mokkie, CC BY-SA 3.0* |
+| 3 | Bukit Kallang | canopy view over the reserve towards the reservoir |
+| 4 | Petaling Boardwalk | the boardwalk through the forest |
+| 5 | Jelutong Tower | the observation tower above the canopy |
+| 6 | Syonan Jinja Ruins | surviving bridge posts standing in the reservoir |
+| 7 | Jering Hut | the signed shelter on the Jering Trail |
+| 8 | The Leaning Tree of MacRitchie | the leaning tree over the waterside boardwalk |
+| 9 | Lim Bo Seng Memorial | the memorial and grave above the reservoir |
+| 10 | MacRitchie Reservoir Park | the park pavilion and boardwalk over the water |
+| 11 | Petai Trail Boardwalk | the boardwalk deck at the water's edge |
 
-\* representative of the boardwalk stretch rather than that exact structure.
+About 700 KB in total at 480 px wide, precached so they work offline. **A photo
+with an empty `credit` shows no caption at all**, which is how all the
+organiser's own images display; only checkpoints 1 and 2 carry an attribution
+line, because their licences require it.
 
-About 640 KB in total at 480 px wide, precached so they work offline. **A photo
-with an empty `credit` shows no caption at all** — that is how the organiser's own
-car park photo displays, and how any others you add will.
+The organiser's photographs settled a question the sourced ones could not.
+Searching the free image pools for the Lim Bo Seng Memorial kept returning the
+Esplanade Park monument on the waterfront — the wrong side of the island from the
+grave above the reservoir — so checkpoint 9 had been left blank rather than given
+a misleading picture. The supplied photo is the real one. Google Maps photos were
+never an option: they are copyrighted by Google or by the people who uploaded
+them, and the Maps terms forbid copying them out.
 
-**Every sourced candidate was opened and compared against the landmark before
-use**, which turned out to matter: a promising "Lim Bo Seng Memorial" result was
-the Esplanade Park monument by the waterfront, not the grave above the reservoir —
-the wrong side of the island. Others were a selfie, a patch of undergrowth tagged
-"Windsor Nature Park", and a group photo of identifiable faces. Those were
-rejected, so **Petaling Boardwalk, Jering Hut, the Leaning Tree and the Lim Bo
-Seng Memorial have no photo** rather than a misleading one. Google Maps photos are
-not an option: they are copyrighted by Google or by the people who uploaded them,
-and the Maps terms forbid copying them out.
-
-To add one, drop the image in `photos/` and add an entry to `data/photos.json`
-keyed by the checkpoint's `id` — **the ids match the numbers drawn on the map**,
-so checkpoint 8 is `cp8`:
+To replace or add one, drop the image in `photos/` and add an entry to
+`data/photos.json` keyed by the checkpoint's `id` — **the ids match the numbers
+drawn on the map**, so checkpoint 8 is `cp8`:
 
 ```json
 "cp8": { "file": "photos/cp8.jpg", "credit": "", "licence": "" }
 ```
 
 Add the file to the `SHELL` list in `sw.js` to have it precached, and resize it
-to about 480 px wide first. `tools/fetch_photos.py` re-downloads the Wikimedia
-Commons ones and records where the Flickr ones came from.
+to about 480 px wide first (`tools/` has no resizer; any image editor will do).
+`tools/fetch_photos.py` re-downloads the one Wikimedia Commons image and records
+where the Flickr one came from.
 
 The image is given an explicit height in CSS rather than `max-height`: Leaflet
 measures a popup to pan it into view the instant it opens, before the image has
