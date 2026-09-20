@@ -907,7 +907,7 @@ function locationText() {
   if (state.lastAccuracy) parts[0] += ` (±${Math.round(state.lastAccuracy)} m)`;
   parts.push(`https://maps.google.com/?q=${lat.toFixed(5)},${lon.toFixed(5)}`);
   if (along != null) {
-    const near = nearestCheckpoint(lat, lon, along);
+    const near = nearestCheckpoint(lat, lon, { along, detached: 0 });
     // "past" and "before" read better than "back" and "ahead" for a marshal
     // being told where to come: it is the landmark that is fixed, not them.
     parts.push(`On the UMS walk route at km ${(p.along / 1000).toFixed(2)}`
@@ -943,31 +943,56 @@ function routeWalk(target, along, off = 0) {
 }
 
 /**
- * `along` is where the walker is on the route, or null when they are off it —
- * then there is no route distance to give and this falls back to straight line,
- * which the card labels as such.
+ * Where to measure from, and how to describe the result.
+ *
+ * On the route that is simply the walker's position. Off it, this used to fall
+ * back to straight lines from the walker, which ranked badly in two ways at
+ * once. It ignored the walk from the path to the thing itself, so a toilet
+ * 600 m off the path through a housing estate beat the one beside the start by
+ * 400 m of crow-flies; and because every candidate sits at roughly the same
+ * bearing once you are any distance away, differences of a few tens of metres
+ * — noise — decided each category separately, so the card offered an AED at one
+ * end of the loop, a toilet in a private estate and a shelter at the other end.
+ * Nothing anyone could act on.
+ *
+ * Off the route every walk starts the same way, by getting back to the path, so
+ * the honest anchor is the point where you would rejoin it. Measured from
+ * there the categories agree with each other, the off-path walk counts, and the
+ * numbers stay comparable. `detached` is the straight line back to that point,
+ * added to every row so the figure covers the whole journey, not its last leg.
  */
-function measure(lat, lon, targetLat, targetLon, targetAlong, off, along) {
-  if (along == null || targetAlong == null) {
-    return { d: haversine(lat, lon, targetLat, targetLon), dir: null };
-  }
-  return routeWalk(targetAlong, along, off);
+function sosAnchor() {
+  const p = state.lastProgress;
+  if (!p) return { along: null, detached: 0 };
+  if (p.onRoute) return { along: p.along, detached: 0 };
+  if (typeof p.nearestAlong !== 'number') return { along: null, detached: 0 };
+  return { along: p.nearestAlong, detached: p.offset || 0, rejoin: true };
 }
 
-function nearestCheckpoint(lat, lon, along) {
+function measure(lat, lon, targetLat, targetLon, targetAlong, off, anchor) {
+  if (!anchor || anchor.along == null || targetAlong == null) {
+    return { d: haversine(lat, lon, targetLat, targetLon), dir: null };
+  }
+  const m = routeWalk(targetAlong, anchor.along, off);
+  // before rejoining the path, "ahead" and "back" name a direction the walker
+  // is not travelling in yet, so a bare distance is the only honest label
+  return anchor.rejoin ? { d: m.d + anchor.detached, dir: null } : m;
+}
+
+function nearestCheckpoint(lat, lon, anchor) {
   let best = null;
   for (const cp of state.checkpoints) {
     if (cp.id === 'finish') continue;                   // same place as the start
-    const m = measure(lat, lon, cp.lat, cp.lon, cp.along, 0, along);
+    const m = measure(lat, lon, cp.lat, cp.lon, cp.along, 0, anchor);
     if (!best || m.d < best.d) best = { cp, ...m };
   }
   return best;
 }
 
-function nearestPoi(cat, lat, lon, along) {
+function nearestPoi(cat, lat, lon, anchor) {
   let best = null;
   (state.pois[cat] || []).forEach((p, i) => {
-    const m = measure(lat, lon, p.lat, p.lon, p.along, p.offset, along);
+    const m = measure(lat, lon, p.lat, p.lon, p.along, p.offset, anchor);
     if (!best || m.d < best.d) best = { p, i, ...m };
   });
   return best;
@@ -993,7 +1018,8 @@ function renderSos() {
   const age = state.lastFixAt ? Math.round((Date.now() - state.lastFixAt) / 1000) : null;
   const p = state.lastProgress;
   const along = p && p.onRoute ? p.along : null;
-  const near = nearestCheckpoint(lat, lon, along);
+  const anchor = sosAnchor();
+  const near = nearestCheckpoint(lat, lon, anchor);
   where.innerHTML =
     `<b>${lat.toFixed(5)}, ${lon.toFixed(5)}</b>`
     + (state.lastAccuracy ? ` · ±${Math.round(state.lastAccuracy)} m` : '')
@@ -1003,7 +1029,7 @@ function renderSos() {
 
   const rows = [];
   for (const cat of ['aed', 'water', 'toilet', 'shelter']) {
-    const hit = nearestPoi(cat, lat, lon, along);
+    const hit = nearestPoi(cat, lat, lon, anchor);
     if (!hit) continue;
     const { p: poi, i } = hit;
     const label = CATEGORY[cat].label;
@@ -1023,10 +1049,13 @@ function renderSos() {
     </li>`);
   }
   list.innerHTML = rows.join('') || '<li class="none">No facilities in the data.</li>';
-  // off the route there is no route distance to give, so say which it is
+  // the numbers mean something different off the route, so say which it is
   $('#sos-note').textContent = along != null
     ? 'Distances follow the route from your last fix, the shorter way round. Tap a row to see it on the map.'
-    : 'Off the route, so these are straight-line distances — the walk may be much further. Tap a row to see it on the map.';
+    : anchor.along != null
+      ? `Off the route: ${formatDistance(anchor.detached)} straight back to the path at km `
+        + `${(anchor.along / 1000).toFixed(2)}, then along the route from there. Tap a row to see it on the map.`
+      : 'Off the route, so these are straight-line distances — the walk may be much further. Tap a row to see it on the map.';
 
   for (const li of list.querySelectorAll('li[data-cat]')) {
     li.addEventListener('click', () => {

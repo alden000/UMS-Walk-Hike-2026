@@ -140,9 +140,27 @@ the toilet that looks nearest at 1.4 km is **3.6 km back** along the trail. So
 every distance on the card is measured along the route, both ways round the
 loop with the shorter winning, plus the few metres from the path to the thing
 itself — and each row says **ahead** or **back**, because a facility behind you
-is a different decision from one in front. Off the route there is no route
-distance to give, so the card falls back to straight line and says so rather
-than quoting a number that flatters the walk.
+is a different decision from one in front.
+
+**Off the route, the same reasoning applies from where you would rejoin it.**
+This used to fall back to straight lines from the walker, and that broke in two
+ways at once. It dropped the offset, so the walk from the path to the thing
+itself stopped counting: a toilet 600 m off the path inside a housing estate
+beat the one beside the start by 400 m of crow-flies. And because every
+candidate sits at much the same bearing once you are any distance away,
+differences of a few tens of metres — noise — decided each category
+independently, so the card could offer an AED at one end of the loop, a toilet
+in a private estate and a shelter at the other end. Four answers, no single
+place to go.
+
+Off the route every walk starts the same way, by getting back to the path, so
+the anchor is the point where you would rejoin it, and the card says which
+km that is. Measured from there the categories agree with each other and the
+offset counts again. Across 400 simulated fixes 550 m to 2 km off the path,
+**29% of picks changed, costing a median 534 m of avoidable walking and up to
+6.2 km** — worst for toilets, where a straight line chose badly in over half
+the cases. Rows off the route carry no **ahead**/**back**, since that names a
+direction the walker is not travelling in yet.
 
 **Surviving a reload** — sooner or later in a four-hour walk the phone kills the
 tab. Distance along, start time and moving time are saved to the device every

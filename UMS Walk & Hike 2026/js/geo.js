@@ -187,6 +187,12 @@ export class ProgressTracker {
         offset: fix.offset,
         onRoute: false,
         atStart: true,
+        // Where they would rejoin the route. Progress above is deliberately
+        // zeroed, but this point is still the right anchor for "how far to the
+        // nearest toilet": off the route every walk starts by getting back to
+        // the path, so distances measured from here are comparable with each
+        // other, which straight lines from the walker are not.
+        nearestAlong: fix.along,
         snapped: [fix.lat, fix.lon],
         speed: null,
         eta: null,
