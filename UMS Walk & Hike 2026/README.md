@@ -179,6 +179,26 @@ version for planning: the forecast opens by default and the panels widen.
 caches map tiles as you view them (capped at 1200). Install it to the home
 screen for a full-screen, chrome-free map.
 
+**Tiles come from the network when there is one**, and from the saved map when
+there is not — but on a deadline. Plain network-first is fine when the network
+is either working or plainly gone: both answer at once. The reserve gives
+neither. A bar of signal under the canopy leaves a request hanging for **thirty
+seconds** before it fails, measured, and waiting that out for every tile with a
+perfect copy already on the device would make the map feel broken exactly where
+it is needed most. So each fetch races a 1.5 s timer and a cached tile is served
+the moment the network looks slow; the fetch is not abandoned, it runs on under
+`waitUntil` and refreshes the cache for next time. Measured across the three
+states, panning over ground the saved pack already covers:
+
+| | Tile requests | Result |
+|---|---|---|
+| Network up | 30 | live tiles — the network is used even where the pack covers it |
+| Network dead (fails in 4 ms) | 30 attempted | 15 tiles drawn from the pack |
+| Connected, nothing returning (30 s hang) | — | map settles in **1.6 s**, not 30 s |
+
+The cost of preferring the network is data: panning over saved ground now
+re-requests those tiles instead of reading them off the device.
+
 **Save map for offline** (layers drawer) — caching tiles as they are viewed
 quietly means offline only covers ground you have already scrolled over, which
 in the reserve is the difference between a map and a blank screen. This button

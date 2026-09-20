@@ -2,10 +2,11 @@
 // patchy mobile coverage.
 //
 //   app shell + route data  precached, served cache-first
-//   map tiles               cached as they are viewed, capped, stale-while-revalidate
+//   map tiles               network first on a 1.5 s deadline, then the saved
+//                           map, then the browsing cache
 //   NEA weather             network-only (the app keeps its own short-lived copy)
 
-const VERSION = 'v25';
+const VERSION = 'v26';
 const SHELL_CACHE = `ums-shell-${VERSION}`;
 const TILE_CACHE = `ums-tiles-${VERSION}`;
 const MAX_TILES = 1200;
@@ -18,6 +19,8 @@ const MAX_TILES = 1200;
 const OFFLINE_CACHE = 'ums-offline';
 // enough parallel requests to keep the link busy without hammering the servers
 const SAVE_CONCURRENCY = 6;
+// how long a tile fetch may take before a cached copy is served instead
+const TILE_NET_TIMEOUT_MS = 1500;
 
 const SHELL = [
   './',
@@ -92,7 +95,7 @@ self.addEventListener('fetch', event => {
   if (url.hostname.endsWith('data.gov.sg')) return;
 
   if (TILE_HOSTS.includes(url.hostname)) {
-    event.respondWith(tileFirst(request));
+    event.respondWith(tile(event));
     return;
   }
 
@@ -124,8 +127,21 @@ async function shellFirst(request) {
   return new Response('Offline', { status: 503, statusText: 'Offline' });
 }
 
-/** Tiles: serve the cached copy if there is one, otherwise fetch and keep it. */
-async function tileFirst(request) {
+/**
+ * Tiles: the live map wins where there is signal, the saved one where there is
+ * not.
+ *
+ * Network first, but on a deadline. Plain network-first is fine when the
+ * network is either working or plainly gone — both answer quickly. The reserve
+ * gives neither: a bar of signal under the canopy leaves a request hanging for
+ * half a minute before it fails, and waiting that out for every tile while a
+ * perfect copy sits on the device would make the map feel broken exactly where
+ * it is needed most. So the fetch races a short timer, and a cached tile is
+ * served the moment the network looks slow. The fetch is not abandoned — it
+ * runs on under waitUntil and refreshes the cache for next time.
+ */
+async function tile(event) {
+  const request = event.request;
   // The tile layers set crossOrigin, so tile requests are CORS requests, and an
   // opaque response cannot answer one: the browser rejects it and the tile
   // renders black. A cached opaque tile therefore counts as a miss and is
@@ -135,28 +151,38 @@ async function tileFirst(request) {
   const wantsCors = request.mode === 'cors';
   const usable = res => !!res && !(wantsCors && res.type === 'opaque');
 
-  // a deliberately saved map wins over the browsing cache and over the network
   const saved = await caches.open(OFFLINE_CACHE);
-  const savedHit = await saved.match(request);
-  if (usable(savedHit)) return savedHit;
-
   const cache = await caches.open(TILE_CACHE);
-  const hit = await cache.match(request);
-  if (usable(hit)) return hit;
+  // the deliberately saved map is the better fallback, so it is checked first
+  let fallback = await saved.match(request);
+  if (!usable(fallback)) fallback = await cache.match(request);
+  if (!usable(fallback)) fallback = null;
 
-  try {
-    const res = await fetch(request);
-    // Only responses this app can actually use again are kept. Storing an
-    // opaque one poisons the cache for the next load, and Cache Storage pads it
-    // by megabytes into the bargain — see saveTiles().
-    if (res.ok) {
-      // a full tile cache must not break tile loading
-      cache.put(request, res.clone()).then(() => trimTiles(cache)).catch(() => {});
-    }
-    return res;
-  } catch {
-    return new Response('', { status: 504, statusText: 'Tile unavailable' });
+  const network = fetch(request)
+    .then(res => {
+      // Only responses this app can actually use again are kept. Storing an
+      // opaque one poisons the cache for the next load, and Cache Storage pads
+      // it by megabytes into the bargain — see saveTiles(). The saved pack is
+      // left alone: it is a snapshot the walker asked for, not a scratch area.
+      if (res.ok) {
+        // a full tile cache must not break tile loading
+        cache.put(request, res.clone()).then(() => trimTiles(cache)).catch(() => {});
+      }
+      return res;
+    })
+    .catch(() => null);
+
+  if (!fallback) {
+    const res = await network;
+    return res || new Response('', { status: 504, statusText: 'Tile unavailable' });
   }
+
+  event.waitUntil(network);          // keep refreshing even once we answer
+  const raced = await Promise.race([
+    network,
+    new Promise(resolve => setTimeout(() => resolve(null), TILE_NET_TIMEOUT_MS)),
+  ]);
+  return usable(raced) && raced.ok ? raced : fallback;
 }
 
 // ── saving a map for the trail ───────────────────────────────────────
