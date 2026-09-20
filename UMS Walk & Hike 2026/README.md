@@ -202,33 +202,39 @@ re-requests those tiles instead of reading them off the device.
 **Save map for offline** (layers drawer) — caching tiles as they are viewed
 quietly means offline only covers ground you have already scrolled over, which
 in the reserve is the difference between a map and a blank screen. This button
-downloads every tile the route needs in one go: **717 tiles, about 2.7 MB, well
-under a minute** on a decent connection. It covers the route and 400 m either
-side at zoom 14–18 — the pan fence is 2 km, but 2 km of forest at that depth
-would be thousands of tiles for ground nobody walks on. Closer in than z18 still
-needs signal. It saves the
+downloads every tile the route needs in one go: **2,610 tiles, about 11 MB,
+two to three minutes** on a decent connection. It covers the route and 400 m
+either side at **zoom 14–19 — every zoom the app can reach**, so nothing is
+blank off-grid at any magnification. The pan fence is 2 km, but 2 km of forest
+at this depth would be tens of thousands of tiles for ground nobody walks on.
+It saves the
 base map you are currently on, so switch and save again for a second one; a save
 can be stopped part-way and the tiles already fetched are kept and labelled
 "(part)".
 
-**Why it stops at z18.** Each level is four times the tiles of the one above,
-so the depth is a choice about how many requests one tap fires at a public tile
-server, not about megabytes. Measured over this route:
+**What the depth costs.** Each level is four times the tiles of the one above,
+so this is a choice about how many requests one tap fires at a public tile
+server, not about megabytes. Measured by saving the packs and watching device
+storage, rather than estimated from samples:
 
-| Depth | Tiles | OneMap | Satellite |
+| Depth | Tiles | OneMap on device | Satellite on device |
 |---|---|---|---|
 | z17 | 209 | 1.1 MB | 3.5 MB |
-| **z18** | **717** | **2.7 MB** | 10.3 MB |
-| z19 | 2,610 | 6.7 MB | 36.8 MB |
+| z18 | 717 | 4.4 MB | — |
+| **z19 (all)** | **2,610** | **11.0 MB** | **25.4 MB** |
 
-z19 is four times the requests for tiles that are visibly emptier — OneMap's own
-tiles shrink from 15.2 KB at z14 to 2.2 KB at z19, because there is less map to
-draw down there, not more. 2,610 requests is also far likelier to fail part-way
-on trailhead mobile data than 717. Satellite is the one that genuinely gains
-detail with depth, and also the one that costs most: its JPEGs stay around 14 KB
-a tile at every zoom.
+Storage is not the constraint — even both base maps at full depth is ~36 MB,
+against a quota that runs to gigabytes on a real phone. The **2,610 requests and
+the two or three minutes** are, which is why the drawer states the tile count
+before you start, reports progress, and lets a save be stopped with whatever it
+has already fetched kept.
 
-A pack saved by an earlier build only goes to z17. Saving again fetches just
+Worth knowing: OneMap's tiles get *smaller* with depth, from 15.2 KB at z14 to
+2.2 KB at z19, because there is less map to draw down there rather than more —
+z19 mostly magnifies what z18 already shows. Satellite is the opposite, genuinely
+gaining resolution, and its JPEGs stay around 14 KB a tile at every zoom.
+
+A pack saved by an earlier build stops at z17 or z18. Saving again fetches only
 what is missing, and the drawer says so rather than leaving the deep tiles
 blank.
 

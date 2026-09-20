@@ -34,15 +34,17 @@ const PROGRESS_KEY = 'ums-progress';
 // would be thousands of tiles for ground nobody walks on; 400 m covers the
 // path, the junctions off it and the reservoir edge.
 //
-// Each level is four times the tiles of the one above it, so the depth is a
-// choice about how many requests a save fires at a public tile server, not
-// about megabytes: measured over this route, z14-z18 is 717 tiles and 2.7 MB,
-// while adding z19 would be 2,610 tiles and 6.7 MB — four times the requests
-// for tiles that are visibly emptier (OneMap's own tiles shrink from 15 KB at
-// z14 to 2.2 KB at z19, because there is less map to draw). z18 is 0.6 m per
-// pixel. Zoom past it off-grid and tiles are blank, which the drawer says.
+// The depth goes to z19, which is as deep as OneMap, Esri and OSM publish, so
+// the saved map now covers every zoom the app can reach and nothing is blank
+// off-grid. Each level is four times the tiles of the one above, so this is a
+// choice about requests rather than megabytes: measured over this route, the
+// whole pack is 2,610 tiles — 11 MB on the device for OneMap, 25 MB for the
+// satellite imagery — against 717 tiles and 4.4 MB stopping at z18. Storage is
+// not the constraint on any modern phone; the two or three minutes and the
+// 2,610 requests are, which is why the save reports progress and can be
+// stopped, keeping whatever it has already fetched.
 const SAVE_CORRIDOR_M = 400;
-const SAVE_ZOOMS = [14, 15, 16, 17, 18];
+const SAVE_ZOOMS = [14, 15, 16, 17, 18, 19];
 const SAVED_KEY = 'ums-saved-maps';
 
 // Who to call. 995 is SCDF's emergency line. Fill in the marshal for the event
@@ -729,6 +731,16 @@ function corridorTiles(spec) {
 
 const deepest = () => SAVE_ZOOMS[SAVE_ZOOMS.length - 1];
 
+// How many tiles a save will fetch. The geometry is the same for every base
+// map, so this is worked out once: at this depth it is a couple of thousand
+// requests and a few minutes, which is worth saying before someone starts it
+// at the trailhead on mobile data.
+let tileCountCache = null;
+function expectedTiles() {
+  if (tileCountCache == null) tileCountCache = corridorTiles(BASEMAPS[0]).length;
+  return tileCountCache;
+}
+
 function savedMaps() {
   try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '{}'); } catch { return {}; }
 }
@@ -766,8 +778,9 @@ function renderSaveState(text) {
   clear.hidden = !names.length;
   note.textContent = names.length
     ? `Saved: ${names.join(', ')}. The route and ${SAVE_CORRIDOR_M} m either side, zoom ${SAVE_ZOOMS[0]}–${deepest()}. Closer in than that still needs signal.`
-      + (shallow ? ' Saved before zoom 18 was included — save again to top it up.' : '')
-    : `Nothing saved yet. Tiles are only kept as you view them, so anywhere you have not scrolled over will be blank in the reserve.`;
+      + (shallow ? ` Saved before zoom ${deepest()} was included — save again to top it up.` : '')
+    : `Nothing saved yet — tiles are only kept as you view them, so anywhere you have not scrolled over will be blank in the reserve. `
+      + `About ${expectedTiles().toLocaleString()} tiles, a few minutes on wi-fi. You can stop it part-way and keep what it has.`;
 }
 
 async function saveMapOffline() {
