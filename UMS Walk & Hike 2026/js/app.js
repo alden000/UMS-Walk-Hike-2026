@@ -131,6 +131,13 @@ const BASEMAPS = [
     tint: '#f2efe9',
     tiles: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     opts: { maxZoom: 19, attribution: OSM_ATTR, crossOrigin: 'anonymous' },
+    // Browsable, but deliberately not bulk-downloadable. A save is ~2,600
+    // requests at once, which is exactly what the OSM tile policy forbids on
+    // infrastructure donated to the project; it also wants an identifying
+    // User-Agent, which a browser will not let us set. OneMap is the better
+    // base here anyway — it is the one with the park connectors and the
+    // nature-reserve paths on it.
+    noSave: 'OpenStreetMap asks apps not to bulk-download its tiles, so this one stays online-only.',
   },
 ];
 
@@ -774,13 +781,24 @@ function renderSaveState(text) {
   const shallow = entries.some(e => (e.rec.depth || 17) < deepest());
   const active = BASEMAPS.find(b => b.id === state.activeBase);
   btn.textContent = `Save “${active ? active.name : 'map'}” for offline`;
-  btn.disabled = false;
+  btn.disabled = !!(active && active.noSave);
   clear.hidden = !names.length;
+  if (active && active.noSave) {
+    note.textContent = `${active.noSave} Switch to ${BASEMAPS[0].name} to save one for the trail.`
+      + (names.length ? ` Already saved: ${names.join(', ')}.` : '');
+    return;
+  }
   note.textContent = names.length
     ? `Saved: ${names.join(', ')}. The route and ${SAVE_CORRIDOR_M} m either side, zoom ${SAVE_ZOOMS[0]}–${deepest()}. Closer in than that still needs signal.`
       + (shallow ? ` Saved before zoom ${deepest()} was included — save again to top it up.` : '')
     : `Nothing saved yet — tiles are only kept as you view them, so anywhere you have not scrolled over will be blank in the reserve. `
       + `About ${expectedTiles().toLocaleString()} tiles, a few minutes on wi-fi. You can stop it part-way and keep what it has.`;
+}
+
+function recordSave(spec, tiles, partial) {
+  const maps = savedMaps();
+  maps[spec.id] = { tiles, at: Date.now(), depth: deepest(), ...(partial ? { partial: true } : {}) };
+  try { localStorage.setItem(SAVED_KEY, JSON.stringify(maps)); } catch { /* ignore */ }
 }
 
 async function saveMapOffline() {
@@ -791,6 +809,7 @@ async function saveMapOffline() {
   }
   const spec = BASEMAPS.find(b => b.id === state.activeBase);
   if (!spec || state.saving) return;
+  if (spec.noSave) { toast(spec.noSave); return; }
 
   const urls = corridorTiles(spec);
   state.saving = true;
@@ -806,18 +825,17 @@ async function saveMapOffline() {
       state.saving = false;
       if (m.quota) {
         toast('Ran out of storage — free some space and try again');
+      } else if (m.blocked) {
+        // keep what did come down: a part-saved map beats none, and the note
+        // will show it as "(part)" so the cover is not over-promised
+        if (m.saved) recordSave(spec, m.saved, true);
+        toast(`The map server is limiting requests — ${m.saved} tiles kept. Try again in a few minutes.`);
       } else if (m.cancelled) {
         // the tiles fetched so far are kept: a part-saved map beats none
-        if (m.saved) {
-          const maps = savedMaps();
-          maps[spec.id] = { tiles: m.saved, at: Date.now(), depth: deepest(), partial: true };
-          try { localStorage.setItem(SAVED_KEY, JSON.stringify(maps)); } catch { /* ignore */ }
-        }
+        if (m.saved) recordSave(spec, m.saved, true);
         toast(`Stopped — ${m.saved} tiles kept`);
       } else {
-        const maps = savedMaps();
-        maps[spec.id] = { tiles: m.saved, at: Date.now(), depth: deepest() };
-        try { localStorage.setItem(SAVED_KEY, JSON.stringify(maps)); } catch { /* ignore */ }
+        recordSave(spec, m.saved, false);
         toast(m.failed
           ? `Saved ${m.saved} tiles, ${m.failed} failed — try again on a better connection`
           : `${spec.name} saved — ${m.saved} tiles ready offline`);

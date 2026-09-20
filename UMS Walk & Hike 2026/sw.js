@@ -6,7 +6,7 @@
 //                           map, then the browsing cache
 //   NEA weather             network-only (the app keeps its own short-lived copy)
 
-const VERSION = 'v27';
+const VERSION = 'v28';
 const SHELL_CACHE = `ums-shell-${VERSION}`;
 const TILE_CACHE = `ums-tiles-${VERSION}`;
 const MAX_TILES = 1200;
@@ -19,6 +19,20 @@ const MAX_TILES = 1200;
 const OFFLINE_CACHE = 'ums-offline';
 // enough parallel requests to keep the link busy without hammering the servers
 const SAVE_CONCURRENCY = 6;
+// A save is a couple of thousand requests over a few minutes, usually on mobile
+// data. Both things that go wrong mid-save — a carrier blip and a tile server
+// deciding the rate is too high — are temporary, so a request that fails is
+// retried rather than leaving a hole in the pack that nobody discovers until
+// they are standing in the reserve with no signal.
+const SAVE_RETRIES = 3;
+const SAVE_BLIP_MS = 700;         // a dropped connection: come back quickly
+const SAVE_THROTTLE_MS = 2000;    // a 429: the server wants a real pause
+const SAVE_MAX_WAIT_MS = 20000;
+const RETRY_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+const THROTTLE_STATUS = new Set([429, 503]);
+// If a server keeps turning us away, grinding through the remaining couple of
+// thousand tiles would be both useless and rude, so the save stops and says so.
+const THROTTLE_GIVE_UP = 12;
 // how long a tile fetch may take before a cached copy is served instead
 const TILE_NET_TIMEOUT_MS = 1500;
 
@@ -203,18 +217,77 @@ self.addEventListener('message', event => {
   if (msg.type === 'forget-tiles') event.waitUntil(forgetTiles(msg.urls || [], event.source));
 });
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// When a server throttles us it is telling the whole save to slow down, not
+// just the one worker that happened to get the 429. Holding the pause here,
+// shared, means all six back off together and the pressure actually drops —
+// six independent backoffs would keep five workers hammering regardless.
+let throttledUntil = 0;
+
+// Retry-After would be the polite thing to obey, and it is read here in case a
+// provider ever permits it, but in practice it is invisible: it is not a
+// CORS-safelisted response header, so script cannot see it cross-origin unless
+// the server sends Access-Control-Expose-Headers, and none of the three tile
+// hosts does. Measured, all three: no expose header, so the value reads null.
+// The doubling below is therefore what actually paces a throttled save.
+function backoffMs(res, attempt, throttled) {
+  const header = res && res.headers.get('Retry-After');
+  if (header) {
+    const secs = Number(header);
+    if (Number.isFinite(secs) && secs >= 0) return Math.min(secs * 1000, SAVE_MAX_WAIT_MS);
+    const when = Date.parse(header);
+    if (!Number.isNaN(when)) return Math.min(Math.max(when - Date.now(), 0), SAVE_MAX_WAIT_MS);
+  }
+  const base = throttled ? SAVE_THROTTLE_MS : SAVE_BLIP_MS;
+  return Math.min(base * 2 ** attempt, SAVE_MAX_WAIT_MS);
+}
+
+/**
+ * Fetch one tile, retrying what is worth retrying.
+ * Returns { res } on success, or { res: null, throttled } when it gave up.
+ */
+async function fetchTile(req) {
+  for (let attempt = 0; ; attempt++) {
+    const hold = throttledUntil - Date.now();
+    if (hold > 0) await sleep(hold);
+    if (saveCancelled) return { res: null, throttled: false };
+
+    let res = null;
+    try {
+      res = await fetch(req);
+    } catch {
+      // offline for a moment, DNS hiccup, connection reset: worth another go
+    }
+    if (res && res.ok) return { res };
+
+    const throttled = !!res && THROTTLE_STATUS.has(res.status);
+    // a 404 or a 403 will say the same thing however often it is asked
+    if (res && !RETRY_STATUS.has(res.status)) return { res: null, throttled: false };
+    if (attempt >= SAVE_RETRIES) return { res: null, throttled };
+
+    const wait = backoffMs(res, attempt, throttled);
+    // A throttle is aimed at the whole save, so the pause is shared and every
+    // worker observes it; a one-off blip only delays the worker that saw it.
+    if (throttled) throttledUntil = Math.max(throttledUntil, Date.now() + wait);
+    else await sleep(wait);
+  }
+}
+
 async function saveTiles(urls, client) {
   const cache = await caches.open(OFFLINE_CACHE);
   const total = urls.length;
-  let done = 0, saved = 0, failed = 0, quota = false;
+  let done = 0, saved = 0, failed = 0, quota = false, blocked = false;
+  let throttleStreak = 0;
   saveCancelled = false;
+  throttledUntil = 0;
 
   const post = extra => client && client.postMessage(
-    { type: 'save-progress', done, total, saved, failed, quota, ...extra });
+    { type: 'save-progress', done, total, saved, failed, quota, blocked, ...extra });
 
   let next = 0;
   async function worker() {
-    while (next < total && !quota && !saveCancelled) {
+    while (next < total && !quota && !blocked && !saveCancelled) {
       const url = urls[next++];
       const req = new Request(url);      // CORS, deliberately — see below
       try {
@@ -230,9 +303,16 @@ async function saveTiles(urls, client) {
           // readable, is accounted at its real size, and still renders for the
           // plain <img> requests Leaflet makes, because a cache entry is keyed
           // on URL and not on the mode it was fetched with.
-          const res = await fetch(req);
-          if (res.ok) { await cache.put(req, res); saved++; }
-          else failed++;
+          const { res, throttled } = await fetchTile(req);
+          if (res) {
+            await cache.put(req, res);
+            saved++;
+            throttleStreak = 0;
+          } else {
+            failed++;
+            if (throttled) { if (++throttleStreak >= THROTTLE_GIVE_UP) blocked = true; }
+            else throttleStreak = 0;
+          }
         }
       } catch (err) {
         if (err && err.name === 'QuotaExceededError') quota = true;

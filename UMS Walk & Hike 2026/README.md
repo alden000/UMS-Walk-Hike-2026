@@ -238,6 +238,35 @@ A pack saved by an earlier build stops at z17 or z18. Saving again fetches only
 what is missing, and the drawer says so rather than leaving the deep tiles
 blank.
 
+**Three of the four base maps can be saved; OpenStreetMap cannot.** A save is
+~2,600 requests in a couple of minutes, which is exactly what the OSM tile
+usage policy forbids on infrastructure donated to the project. It also asks for
+an identifying `User-Agent`, which a browser will not let a `fetch` set at all.
+So OSM stays browsable live and its save button is disabled with the reason
+shown. No real loss: OneMap is the better base here anyway, being the one with
+the park connectors and nature-reserve paths on it.
+
+**A request that fails is retried rather than left as a hole in the pack.**
+Everyone saves over mobile data, and both things that go wrong mid-save — a
+carrier blip and a server deciding the rate is too high — are temporary. Before,
+either one was counted as `failed` and dropped, and the toast blamed the
+connection; the gap then surfaced in the reserve, with no signal to fix it.
+
+Retries back off exponentially, and a throttle is treated differently from a
+blip: a dropped connection retries from 0.7 s, a 429 or 503 from 2 s. The pause
+after a throttle is **shared by all six workers**, because a 429 is aimed at the
+whole save — six independent backoffs would leave five workers hammering
+regardless. If a server turns us away 12 times in a row the save stops, keeps
+what it has, and says so, rather than grinding out another 10,000 requests
+against something that is plainly blocking us. Measured against a server
+answering 429 to everything: **68 requests attempted out of 1,200, then stop.**
+
+`Retry-After` would be the polite thing to obey and the code reads it, but in
+practice it is invisible: it is not a CORS-safelisted response header, so script
+cannot see it cross-origin unless the server sends `Access-Control-Expose-Headers`.
+Measured — none of the three tile hosts does, so the value reads `null` and the
+doubling above is what actually paces a throttled save.
+
 Saved tiles live in their own cache, apart from the ones picked up in passing,
 for two reasons: the browsing cache is trimmed oldest-first, so a saved map
 would be the first thing evicted by an afternoon of panning about; and its name
@@ -316,7 +345,7 @@ of the screen.
 | **OneMap (SLA)** | OneMap / Singapore Land Authority | The official national basemap. Shows park connectors, nature-reserve paths and reservoir detail. Default. |
 | **Trail map** | OneMap Grey + local trail overlay | Muted base with every footpath, track and flight of steps in the corridor drawn on top (1,458 ways), aligned 1:1 with the ground. |
 | **Satellite** | Esri World Imagery | Canopy hides most of the trail surface inside the reserve. |
-| **Street (OSM)** | OpenStreetMap standard | The same data the markers come from. |
+| **Street (OSM)** | OpenStreetMap standard | The same data the markers come from. Browsable live only — not available for offline save, see above. |
 
 Each row in the picker shows a **real tile from that base map**, taken at the
 middle of the route, so it previews what the map will actually look like. The
