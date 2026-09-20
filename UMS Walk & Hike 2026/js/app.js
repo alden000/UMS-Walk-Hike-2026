@@ -30,13 +30,19 @@ const PROGRESS_KEY = 'ums-progress';
 
 // ── saving the map for the trail ─────────────────────────────────────
 // How wide a strip either side of the route to download, and how far in to
-// zoom. The pan fence is 2 km, but downloading 2 km of forest at z17 would be
-// thousands of tiles for ground nobody walks on; 400 m covers the path, the
-// junctions off it and the reservoir edge. z17 is about 1.2 m per pixel, which
-// is as close as anyone needs on foot — zoom past it off-grid and tiles will be
-// blank, which the drawer says.
+// zoom. The pan fence is 2 km, but downloading 2 km of forest at this depth
+// would be thousands of tiles for ground nobody walks on; 400 m covers the
+// path, the junctions off it and the reservoir edge.
+//
+// Each level is four times the tiles of the one above it, so the depth is a
+// choice about how many requests a save fires at a public tile server, not
+// about megabytes: measured over this route, z14-z18 is 717 tiles and 2.7 MB,
+// while adding z19 would be 2,610 tiles and 6.7 MB — four times the requests
+// for tiles that are visibly emptier (OneMap's own tiles shrink from 15 KB at
+// z14 to 2.2 KB at z19, because there is less map to draw). z18 is 0.6 m per
+// pixel. Zoom past it off-grid and tiles are blank, which the drawer says.
 const SAVE_CORRIDOR_M = 400;
-const SAVE_ZOOMS = [14, 15, 16, 17];
+const SAVE_ZOOMS = [14, 15, 16, 17, 18];
 const SAVED_KEY = 'ums-saved-maps';
 
 // Who to call. 995 is SCDF's emergency line. Fill in the marshal for the event
@@ -721,6 +727,8 @@ function corridorTiles(spec) {
   return urls;
 }
 
+const deepest = () => SAVE_ZOOMS[SAVE_ZOOMS.length - 1];
+
 function savedMaps() {
   try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '{}'); } catch { return {}; }
 }
@@ -745,16 +753,20 @@ function renderSaveState(text) {
   const saved = savedMaps();
   // a save that was stopped part-way is still useful, but saying "saved" flat
   // out would promise cover it does not have
-  const names = Object.keys(saved)
-    .map(id => ({ spec: BASEMAPS.find(b => b.id === id), rec: saved[id] }))
-    .filter(e => e.spec)
-    .map(e => e.rec && e.rec.partial ? `${e.spec.name} (part)` : e.spec.name);
+  const entries = Object.keys(saved)
+    .map(id => ({ spec: BASEMAPS.find(b => b.id === id), rec: saved[id] || {} }))
+    .filter(e => e.spec);
+  const names = entries.map(e => e.rec.partial ? `${e.spec.name} (part)` : e.spec.name);
+  // a pack saved before the depth went up has no z18 in it; saving again only
+  // fetches what is missing, so it is worth saying rather than leaving blanks
+  const shallow = entries.some(e => (e.rec.depth || 17) < deepest());
   const active = BASEMAPS.find(b => b.id === state.activeBase);
   btn.textContent = `Save “${active ? active.name : 'map'}” for offline`;
   btn.disabled = false;
   clear.hidden = !names.length;
   note.textContent = names.length
-    ? `Saved: ${names.join(', ')}. The route and ${SAVE_CORRIDOR_M} m either side, zoom ${SAVE_ZOOMS[0]}–${SAVE_ZOOMS[SAVE_ZOOMS.length - 1]}. Closer in than that still needs signal.`
+    ? `Saved: ${names.join(', ')}. The route and ${SAVE_CORRIDOR_M} m either side, zoom ${SAVE_ZOOMS[0]}–${deepest()}. Closer in than that still needs signal.`
+      + (shallow ? ' Saved before zoom 18 was included — save again to top it up.' : '')
     : `Nothing saved yet. Tiles are only kept as you view them, so anywhere you have not scrolled over will be blank in the reserve.`;
 }
 
@@ -785,13 +797,13 @@ async function saveMapOffline() {
         // the tiles fetched so far are kept: a part-saved map beats none
         if (m.saved) {
           const maps = savedMaps();
-          maps[spec.id] = { tiles: m.saved, at: Date.now(), partial: true };
+          maps[spec.id] = { tiles: m.saved, at: Date.now(), depth: deepest(), partial: true };
           try { localStorage.setItem(SAVED_KEY, JSON.stringify(maps)); } catch { /* ignore */ }
         }
         toast(`Stopped — ${m.saved} tiles kept`);
       } else {
         const maps = savedMaps();
-        maps[spec.id] = { tiles: m.saved, at: Date.now() };
+        maps[spec.id] = { tiles: m.saved, at: Date.now(), depth: deepest() };
         try { localStorage.setItem(SAVED_KEY, JSON.stringify(maps)); } catch { /* ignore */ }
         toast(m.failed
           ? `Saved ${m.saved} tiles, ${m.failed} failed — try again on a better connection`

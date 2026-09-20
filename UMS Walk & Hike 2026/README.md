@@ -182,14 +182,35 @@ screen for a full-screen, chrome-free map.
 **Save map for offline** (layers drawer) — caching tiles as they are viewed
 quietly means offline only covers ground you have already scrolled over, which
 in the reserve is the difference between a map and a blank screen. This button
-downloads every tile the route needs in one go: **209 tiles, about 1.7 MB, 14
-seconds** on a decent connection. It covers the route and 400 m either side at
-zoom 14–17 — the pan fence is 2 km, but 2 km of forest at z17 would be thousands
-of tiles for ground nobody walks on, and z17 is about 1.2 m per pixel, as close
-as anyone needs on foot. Closer in than that still needs signal. It saves the
+downloads every tile the route needs in one go: **717 tiles, about 2.7 MB, well
+under a minute** on a decent connection. It covers the route and 400 m either
+side at zoom 14–18 — the pan fence is 2 km, but 2 km of forest at that depth
+would be thousands of tiles for ground nobody walks on. Closer in than z18 still
+needs signal. It saves the
 base map you are currently on, so switch and save again for a second one; a save
 can be stopped part-way and the tiles already fetched are kept and labelled
 "(part)".
+
+**Why it stops at z18.** Each level is four times the tiles of the one above,
+so the depth is a choice about how many requests one tap fires at a public tile
+server, not about megabytes. Measured over this route:
+
+| Depth | Tiles | OneMap | Satellite |
+|---|---|---|---|
+| z17 | 209 | 1.1 MB | 3.5 MB |
+| **z18** | **717** | **2.7 MB** | 10.3 MB |
+| z19 | 2,610 | 6.7 MB | 36.8 MB |
+
+z19 is four times the requests for tiles that are visibly emptier — OneMap's own
+tiles shrink from 15.2 KB at z14 to 2.2 KB at z19, because there is less map to
+draw down there, not more. 2,610 requests is also far likelier to fail part-way
+on trailhead mobile data than 717. Satellite is the one that genuinely gains
+detail with depth, and also the one that costs most: its JPEGs stay around 14 KB
+a tile at every zoom.
+
+A pack saved by an earlier build only goes to z17. Saving again fetches just
+what is missing, and the drawer says so rather than leaving the deep tiles
+blank.
 
 Saved tiles live in their own cache, apart from the ones picked up in passing,
 for two reasons: the browsing cache is trimmed oldest-first, so a saved map
