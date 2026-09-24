@@ -228,7 +228,7 @@ function buildMap(routeDoc, trailDoc) {
   state.map = map;
   map.attributionControl.setPrefix('');
 
-  for (const spec of BASEMAPS) state.baseLayers[spec.id] = L.tileLayer(spec.tiles, spec.opts);
+  for (const spec of BASEMAPS) state.baseLayers[spec.id] = makeBaseLayer(spec);
 
   // trail overlay, drawn from the same OSM extract as the markers
   const trails = L.layerGroup();
@@ -303,6 +303,59 @@ function applyBounds() {
     [centre.lat - halfLat, centre.lng - halfLon],
     [centre.lat + halfLat, centre.lng + halfLon],
   ));
+}
+
+// Every provider serves 256 px tiles, and every phone at the event draws two or
+// three screen pixels per map pixel (iPhones 3x, recent Androids 2.6-3.5x), so
+// a 256 px tile shown at 256 px is stretched and looks soft. Nobody publishes
+// sharper tiles at the same scale — OneMap's _HD styles are 256 px too, and
+// drop the dashed footpaths besides. The fix is the one Leaflet's detectRetina
+// makes: fetch the next zoom level and draw its tiles at half size, so a map
+// pixel lands on two screen pixels instead of one smeared across three.
+//
+// The cost, measured at 2.625x: labels, icons and line widths printed on the
+// tiles come out at half size, and a screen takes about three times the tiles.
+//
+// detectRetina itself is not used because it also drops the layer's maxZoom to
+// 18, which would blank the map at 19. Here maxNativeZoom does that job
+// instead: at 19 the z19 tiles are scaled up, exactly as every phone saw them
+// before. The offline pack needs nothing new — it already runs to z19, and
+// sharp mode only reads one level deeper, so z14-z19 now covers map zooms
+// 13-19 rather than 14-19.
+const HI_DPI = (window.devicePixelRatio || 1) > 1;
+
+// Half-size tiles sit at fractional device-pixel positions (128 CSS px is 336
+// device px at 2.625x, but the map origin is rarely whole), and the browser
+// leaves a hairline between neighbours. Leaflet 1.9's own remedy is to draw
+// tiles with mix-blend-mode: plus-lighter, which sums the half-covered pixels
+// at an edge back to full strength — but at this tile size it still left a
+// bright hairline on most screens, measured on fresh loads at 2.625x.
+//
+// So each tile is drawn half a CSS pixel oversize, and the sharp layers opt out
+// of plus-lighter (the .sharp-tiles rule in app.css). The two go together: under
+// plus-lighter the overlap is *added*, green on green comes out white, and the
+// seam gets worse — measured, a three-device-pixel white line on every tile
+// edge. With normal blending the neighbour simply paints over the overhang, and
+// the grid lines measured no stronger than the map's own texture at any zoom.
+const SeamlessTileLayer = L.TileLayer.extend({
+  _initTile(tile) {
+    L.TileLayer.prototype._initTile.call(this, tile);
+    const size = this.getTileSize();
+    tile.style.width = `${size.x + 0.5}px`;
+    tile.style.height = `${size.y + 0.5}px`;
+  },
+});
+
+function makeBaseLayer(spec) {
+  if (!HI_DPI) return L.tileLayer(spec.tiles, spec.opts);
+  const maxZoom = spec.opts.maxZoom ?? 19;
+  return new SeamlessTileLayer(spec.tiles, {
+    ...spec.opts,
+    tileSize: 128,
+    zoomOffset: 1,
+    maxNativeZoom: maxZoom - 1,     // + the offset = z19, the deepest published
+    className: 'sharp-tiles',
+  });
 }
 
 function setBasemap(id) {

@@ -365,6 +365,31 @@ of the screen.
 | **Satellite** | Esri World Imagery | Canopy hides most of the trail surface inside the reserve. |
 | **Street (OSM)** | OpenStreetMap standard | The same data the markers come from. Browsable live only — not available for offline save, see above. |
 
+**Sharp on phone screens.** Every provider serves 256 px tiles, and every phone
+at the event draws two or three screen pixels per map pixel — iPhones 3×, recent
+Androids 2.6–3.5× — so a tile shown at its own size is stretched and looks soft.
+Nobody publishes sharper tiles at the same scale: OneMap's `_HD` styles are
+256 px as well, and leave out the dashed footpaths. So on any screen above 1×,
+every base map fetches the next zoom level down and draws it at half size, and
+a map pixel lands on whole screen pixels instead of being smeared across three.
+
+What it costs, measured at 2.625×: labels, icons and line widths printed on the
+tiles come out at half size, and a screen takes two to four times the tiles
+(6 → 24 at zoom 17). Leaflet's own `detectRetina` is not used, because it also
+lowers the layer's top zoom to 18 and the map would go blank at 19; at 19 the
+z19 tiles are scaled up, which is what every phone saw before. The offline pack
+needs nothing new — it already runs to z19 and sharp mode reads one level
+deeper, so the same tiles now cover map zooms 13–19.
+
+Half-size tiles land on fractional device pixels, and the browser leaves a
+hairline between neighbours. Leaflet 1.9 blends tiles with `plus-lighter` to
+hide that, but at this size it still left a bright line on most screens. Each
+tile is therefore drawn half a pixel oversize and these layers blend normally —
+the two must go together, because under `plus-lighter` the overlap is *added*
+and every tile edge turned into a three-pixel white line. Measured on fresh
+loads across all four base maps at zooms 15, 17 and 18, on 2.625× and 3×: tile
+edges no stronger than the map's own detail anywhere.
+
 Each row in the picker shows a **real tile from that base map**, taken at the
 middle of the route, so it previews what the map will actually look like. The
 thumbnail is built from the same URL template the layer itself uses, so it

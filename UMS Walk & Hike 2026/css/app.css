@@ -945,3 +945,11 @@ h2:first-of-type { margin-top: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }
+
+/* Sharp tiles on high-DPI screens are drawn half a pixel oversize to close the
+   seams between them (see SeamlessTileLayer in js/app.js). Leaflet draws tiles
+   with plus-lighter, which would add the overlap together and turn every tile
+   edge into a white line, so these layers blend normally. */
+.leaflet-container .sharp-tiles img.leaflet-tile {
+  mix-blend-mode: normal;
+}
