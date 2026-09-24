@@ -477,13 +477,21 @@ All official NEA feeds via data.gov.sg — open, keyless, CORS-enabled:
 | Reading | Source |
 |---|---|
 | **Now** — condition | `two-hr-forecast`, nowcast for the forecast areas the route crosses (Bishan, Central Water Catchment, Novena). Where they disagree the wettest wins, so the card warns rather than reassures. |
-| **Now** — temperature, humidity, wind, rain | `air-temperature`, `relative-humidity`, `wind-speed`, `rainfall` — the station nearest you. |
+| **Now** — temperature, humidity, wind, rain | `air-temperature`, `relative-humidity`, `wind-speed`, `rainfall` — the station nearest the route's centre: the MacRitchie Reservoir gauge, on the path, for rain; Ang Mo Kio Ave 5, the closest there is, for the rest. |
 | **+2 h** — condition | The 2-hour nowcast, which is exactly this window. |
 | **+4 h / +6 h** — condition | `twenty-four-hr-forecast`, the period covering that time, central region. |
 | **+2/4/6 h** — temperature | **Estimated.** NEA publishes a daily high/low, not an hourly temperature forecast, so the app tracks the current reading along a diurnal curve (minimum ~06:00, maximum ~14:00) bounded by today's range. Shown with a `~`. |
 | **PSI** | `psi` — 24-hour PSI for the central region, the figure NEA's own health advisories use. |
 | **PM2.5** | `pm25` — 1-hour PM2.5 for the central region. |
 | **UV index** | `uv` — hidden at night, when it reads 0. |
+
+**Every reading is the route's, wherever the phone is.** It used to follow the
+GPS fix, so checking from home the night before mixed the route's nowcast with
+home's air quality and forecast region — measured from a flat in the north:
+PSI 68 for the north region against 77 for central, and a thundery-showers
+forecast the route's own region did not have. That is the evening people decide
+whether the haze is bad enough to stay away, so the panel now always describes
+the walk. On the loop nothing changes: all of it lies in the central region.
 
 **Collapsing.** The panel folds down to a one-line summary — condition, icon,
 temperature, PSI and PM2.5 — which keeps refreshing on the same 5-minute cycle

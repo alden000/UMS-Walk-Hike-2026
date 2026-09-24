@@ -6,7 +6,7 @@
 //                           map, then the browsing cache
 //   NEA weather             network-only (the app keeps its own short-lived copy)
 
-const VERSION = 'v29';
+const VERSION = 'v30';
 const SHELL_CACHE = `ums-shell-${VERSION}`;
 const TILE_CACHE = `ums-tiles-${VERSION}`;
 const MAX_TILES = 1200;

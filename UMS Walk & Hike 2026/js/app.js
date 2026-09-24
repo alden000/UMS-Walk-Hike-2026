@@ -1491,9 +1491,16 @@ async function refreshWeather(manual) {
   clearTimeout(state.wxRetry);
   btn.disabled = true;
   try {
-    const centre = state.lastFix
-      ? { lat: state.lastFix[0], lon: state.lastFix[1] }
-      : centreOfRoute();
+    // The panel describes the walk, not wherever the phone happens to be.
+    // Following the GPS fix meant checking from home the night before showed
+    // home's air quality and forecast region beside the route's nowcast — PSI
+    // from the north region against a route that lies wholly in central — a
+    // mix that described neither place, on exactly the evening people decide
+    // whether the haze is bad enough to stay away. From the route's centre,
+    // every reading is the route's: the central region, the MacRitchie
+    // Reservoir rain gauge on the path itself, and the nearest temperature
+    // station to the loop.
+    const centre = centreOfRoute();
     // sample the route so the nowcast covers every area it passes through
     const samples = [0, 0.25, 0.5, 0.75].map(f => state.route.atDistance(f * state.route.total));
     const model = await loadWeather(centre, samples);
